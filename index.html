@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restaurant Matcher</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            color: #FF5864;
+            margin-bottom: 5px;
+        }
+        
+        .search-form {
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        
+        .button {
+            background-color: #FF5864;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            display: inline-block;
+            text-align: center;
+            width: 100%;
+        }
+        
+        .button:hover {
+            background-color: #e1404d;
+        }
+        
+        .card {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+            margin-bottom: 20px;
+            height: 500px;
+            position: relative;
+        }
+        
+        .card-img {
+            width: 100%;
+            height: 60%;
+            object-fit: cover;
+        }
+        
+        .card-content {
+            padding: 15px;
+        }
+        
+        .card-title {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .card-info {
+            color: #757575;
+            margin-bottom: 10px;
+        }
+        
+        .card-actions {
+            display: flex;
+            justify-content: space-around;
+            padding: 15px;
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+        }
+        
+        .action-button {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: white;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+            cursor: pointer;
+            transition: transform 0.2s;
+            font-size: 24px;
+        }
+        
+        .like-button {
+            color: #00d174;
+        }
+        
+        .dislike-button {
+            color: #fd5068;
+        }
+        
+        .info-button {
+            color: #2980b9;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 300px;
+        }
+        
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #FF5864;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error-message {
+            color: #e74c3c;
+            text-align: center;
+            padding: 20px;
+            background-color: #fdecea;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .restaurant-list {
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .restaurant-item {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .restaurant-item:last-child {
+            border-bottom: none;
+        }
+        
+        .price-level {
+            color: #2ecc71;
+        }
+    </style>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCHBWV_-CcYHftllY2aZ22SfSySw9PjqFo&libraries=places"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Search View -->
+        <div id="search-view">
+            <div class="header">
+                <h1>Restaurant Matcher</h1>
+                <p>Find restaurants to enjoy with friends</p>
+            </div>
+            
+            <div id="error-container" class="hidden error-message"></div>
+            
+            <form id="search-form" class="search-form">
+                <div class="form-group">
+                    <label for="location">Location</label>
+                    <input 
+                        id="location"
+                        type="text"
+                        placeholder="Enter city or neighborhood"
+                        required
+                    />
+                </div>
+                
+                <div class="form-group">
+                    <label for="radius">Distance (km)</label>
+                    <select id="radius">
+                        <option value="1000">1 km</option>
+                        <option value="2000" selected>2 km</option>
+                        <option value="5000">5 km</option>
+                        <option value="10000">10 km</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="price-level">Price Level</label>
+                    <select id="price-level">
+                        <option value="">Any</option>
+                        <option value="1">$</option>
+                        <option value="2">$$</option>
+                        <option value="3">$$$</option>
+                        <option value="4">$$$$</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="cuisine">Cuisine Type</label>
+                    <select id="cuisine">
+                        <option value="">Any</option>
+                        <option value="Italian">Italian</option>
+                        <option value="Chinese">Chinese</option>
+                        <option value="Japanese">Japanese</option>
+                        <option value="Mexican">Mexican</option>
+                        <option value="Indian">Indian</option>
+                        <option value="Thai">Thai</option>
+                        <option value="American">American</option>
+                        <option value="French">French</option>
+                    </select>
+                </div>
+                
+                <button type="submit" class="button" id="search-button">
+                    Find Restaurants
+                </button>
+            </form>
+        </div>
+        
+        <!-- Loading View -->
+        <div id="loading-view" class="hidden">
+            <div class="loading">
+                <div class="spinner"></div>
+            </div>
+        </div>
+        
+        <!-- Swipe View -->
+        <div id="swipe-view" class="hidden">
+            <div class="header">
+                <h1>Find Your Match</h1>
+                <p>Restaurant <span id="current-index">1</span> of <span id="total-restaurants">20</span></p>
+            </div>
+            
+            <div class="card">
+                <img class="card-img" id="restaurant-image" src="" alt="Restaurant">
+                <div class="card-content">
+                    <h2 class="card-title" id="restaurant-name"></h2>
+                    <p class="card-info" id="restaurant-cuisine"></p>
+                    <p class="card-info" id="restaurant-rating"></p>
+                    <p class="card-info" id="restaurant-price"></p>
+                    <p class="card-info" id="restaurant-address"></p>
+                </div>
+                <div class="card-actions">
+                    <div class="action-button dislike-button" id="dislike-button">❌</div>
+                    <div class="action-button info-button" id="info-button">ℹ️</div>
+                    <div class="action-button like-button" id="like-button">❤️</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Results View -->
+        <div id="results-view" class="hidden">
+            <div class="header">
+                <h1>Your Results</h1>
+                <p>You liked <span id="liked-count">0</span> restaurants</p>
+            </div>
+            
+            <p>Share this code with your friend: <strong id="session-id"></strong></p>
+            
+            <div class="form-group" style="margin-top: 20px;">
+                <label for="friend-code">Enter Friend Code</label>
+                <input 
+                    id="friend-code"
+                    type="text"
+                    placeholder="Enter friend's code"
+                />
+            </div>
+            
+            <button class="button" id="find-matches-button">
+                Find Matches
+            </button>
+            
+            <button class="button" id="start-over-button" style="margin-top: 15px; background-color: #424242;">
+                Start Over
+            </button>
+        </div>
+        
+        <!-- Matches View -->
+        <div id="matches-view" class="hidden">
+            <div class="header">
+                <h1>Your Matches</h1>
+                <p>Restaurants both you and your friend liked</p>
+            </div>
+            
+            <div id="matches-list" class="restaurant-list">
+                <!-- Matches will be inserted here -->
+            </div>
+            
+            <button class="button" id="matches-start-over-button" style="margin-top: 20px;">
+                Start Over
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const searchView = document.getElementById('search-view');
+        const loadingView = document.getElementById('loading-view');
+        const swipeView = document.getElementById('swipe-view');
+        const resultsView = document.getElementById('results-view');
+        const matchesView = document.getElementById('matches-view');
+        
+        const searchForm = document.getElementById('search-form');
+        const locationInput = document.getElementById('location');
+        const radiusSelect = document.getElementById('radius');
+        const priceLevelSelect = document.getElementById('price-level');
+        const cuisineSelect = document.getElementById('cuisine');
+        const searchButton = document.getElementById('search-button');
+        
+        const currentIndexSpan = document.getElementById('current-index');
+        const totalRestaurantsSpan = document.getElementById('total-restaurants');
+        const restaurantImage = document.getElementById('restaurant-image');
+        const restaurantName = document.getElementById('restaurant-name');
+        const restaurantCuisine = document.getElementById('restaurant-cuisine');
+        const restaurantRating = document.getElementById('restaurant-rating');
+        const restaurantPrice = document.getElementById('restaurant-price');
+        const restaurantAddress = document.getElementById('restaurant-address');
+        
+        const dislikeButton = document.getElementById('dislike-button');
+        const infoButton = document.getElementById('info-button');
+        const likeButton = document.getElementById('like-button');
+        
+        const likedCountSpan = document.getElementById('liked-count');
+        const sessionIdSpan = document.getElementById('session-id');
+        const friendCodeInput = document.getElementById('friend-code');
+        const findMatchesButton = document.getElementById('find-matches-button');
+        const startOverButton = document.getElementById('start-over-button');
+        const matchesStartOverButton = document.getElementById('matches-start-over-button');
+        
+        const matchesList = document.getElementById('matches-list');
+        const errorContainer = document.getElementById('error-container');
+        
+        // App State
+        let restaurants = [];
+        let currentIndex = 0;
+        let likedRestaurants = {};
+        let sessionId = '';
+        
+        // Show a specific view
+        function showView(viewElement) {
+            searchView.classList.add('hidden');
+            loadingView.classList.add('hidden');
+            swipeView.classList.add('hidden');
+            resultsView.classList.add('hidden');
+            matchesView.classList.add('hidden');
+            
+            viewElement.classList.remove('hidden');
+        }
+        
+        // Show error message
+        function showError(message) {
+            errorContainer.textContent = message;
+            errorContainer.classList.remove('hidden');
+        }
+        
+        // Hide error message
+        function hideError() {
+            errorContainer.classList.add('hidden');
+        }
+        
+        // Helper function to determine cuisine from place types
+        function getCuisineFromTypes(types) {
+            const cuisineMap = {
+                'bakery': 'Bakery',
+                'cafe': 'Café',
+                'bar': 'Bar',
+                'restaurant': 'Restaurant',
+                'meal_delivery': 'Delivery',
+                'meal_takeaway': 'Takeaway',
+                'food': 'Food'
+            };
+            
+            for (const type of types) {
+                if (cuisineMap[type]) {
+                    return cuisineMap[type];
+                }
+            }
+            
+            return 'Restaurant';
+        }
+        
+        // Fetch restaurants from Google Places API
+        function fetchRestaurants() {
+            showView(loadingView);
+            hideError();
+            
+            // Get form values
+            const location = locationInput.value;
+            const radius = parseInt(radiusSelect.value);
+            const priceLevel = priceLevelSelect.value;
+            const cuisine = cuisineSelect.value;
+            
+            // Create a location bias based on the user's input
+            const geocoder = new google.maps.Geocoder();
+            
+            geocoder.geocode({ address: location }, function(results, status) {
+                if (status !== 'OK') {
+                    showError('Could not find that location. Please try again.');
+                    showView(searchView);
+                    return;
+                }
+                
+                const locationBias = results[0].geometry.location;
+                const placesService = new google.maps.places.PlacesService(document.createElement('div'));
+                
+                // Build search request
+                let request = {
+                    location: locationBias,
+                    radius: radius,
+                    type: 'restaurant'
+                };
+                
+                // Add keyword for cuisine if specified
+                if (cuisine) {
+                    request.keyword = cuisine;
+                }
+                
+                placesService.nearbySearch(request, function(results, status) {
+                    if (status !== 'OK' || !results || results.length === 0) {
+                        showError('No restaurants found for that search. Please try different criteria.');
+                        showView(searchView);
+                        return;
+                    }
+                    
+                    // Filter by price level if specified
+                    let filteredResults = results;
+                    if (priceLevel) {
+                        const priceLevelNum = parseInt(priceLevel);
+                        filteredResults = results.filter(place => place.price_level === priceLevelNum);
+                        
+                        // If no restaurants match the price filter, show all results
+                        if (filteredResults.length === 0) {
+                            filteredResults = results;
+                        }
+                    }
+                    
+                    // Limit to 20 restaurants
+                    filteredResults = filteredResults.slice(0, 20);
+                    
+                    // Format results for our app
+                    restaurants = filteredResults.map(place => {
+                        return {
+                            id: place.place_id,
+                            name: place.name,
+                            address: place.vicinity,
+                            cuisine: cuisine || getCuisineFromTypes(place.types),
+                            rating: place.rating || "No ratings yet",
+                            priceLevel: place.price_level || 1,
+                            photoUrl: place.photos && place.photos[0] ? 
+                                    place.photos[0].getUrl() : 
+                                    "https://placehold.co/600x400?text=No+Image"
+                        };
+                    });
+                    
+                    // Create a session ID for sharing
+                    sessionId = Math.random().toString(36).substring(2, 15);
+                    
+                    // If using Firebase, save session data
+                    if (typeof firebase !== 'undefined') {
+                        firebase.database().ref('sessions/' + sessionId).set({
+                            restaurants: restaurants,
+                            timestamp: Date.now()
+                        });
+                    }
+                    
+                    // Reset state
+                    currentIndex = 0;
+                    likedRestaurants = {};
+                    
+                    // Update UI and show swipe view
+                    if (restaurants.length > 0) {
+                        updateRestaurantDisplay();
+                        showView(swipeView);
+                    } else {
+                        showError('No restaurants found for that search. Please try different criteria.');
+                        showView(searchView);
+                    }
+                });
+            });
+        }
+        
+        // Display current restaurant
+        function updateRestaurantDisplay() {
+            const restaurant = restaurants[currentIndex];
+            
+            currentIndexSpan.textContent = currentIndex + 1;
+            totalRestaurantsSpan.textContent = restaurants.length;
+            
+            restaurantImage.src = restaurant.photoUrl;
+            restaurantImage.alt = restaurant.name;
+            restaurantName.textContent = restaurant.name;
+            restaurantCuisine.textContent = `Cuisine: ${restaurant.cuisine}`;
+            restaurantRating.textContent = `Rating: ${restaurant.rating} ★`;
+            
+            let priceText = '';
+            for (let i = 0; i < restaurant.priceLevel; i++) {
+                priceText += '$';
+            }
+            restaurantPrice.textContent = `Price: ${priceText}`;
+            
+            restaurantAddress.textContent = `Address: ${restaurant.address}`;
+        }
+        
+        // Handle swipe action
+        function handleSwipe(liked) {
+            if (liked) {
+                likedRestaurants[restaurants[currentIndex].id] = true;
+                
+                // Save like to Firebase if available
+                if (typeof firebase !== 'undefined' && sessionId) {
+                    firebase.database().ref('sessions/' + sessionId + '/likes/' + restaurants[currentIndex].id).set(true);
+                }
+            }
+            
+            if (currentIndex < restaurants.length - 1) {
+                currentIndex++;
+                updateRestaurantDisplay();
+            } else {
+                // Done swiping
+                const likedCount = Object.keys(likedRestaurants).length;
+                likedCountSpan.textContent = likedCount;
+                sessionIdSpan.textContent = sessionId;
+                
+                showView(resultsView);
+            }
+        }
+        
+        // Find matches with friend
+        function findMatches() {
+            const friendCode = friendCodeInput.value;
+            if (!friendCode) {
+                alert('Please enter a friend code');
+                return;
+            }
+            
+            showView(loadingView);
+            
+            // If using Firebase, get friend's likes from database
+            if (typeof firebase !== 'undefined') {
+                // First, save our likes to Firebase
+                firebase.database().ref('sessions/' + sessionId + '/likes').set(likedRestaurants);
+                
+                // Then get friend's likes
+                firebase.database().ref('sessions/' + friendCode + '/likes').once('value')
+                    .then(snapshot => {
+                        const friendLikes = snapshot.val() || {};
+                        const likedIds = Object.keys(likedRestaurants);
+                        const friendLikedIds = Object.keys(friendLikes);
+                        
+                        // Find matches (restaurants liked by both users)
+                        const matchedIds = likedIds.filter(id => friendLikedIds.includes(id));
+                        
+                        // Get friend's restaurant data
+                        return firebase.database().ref('sessions/' + friendCode + '/restaurants').once('value')
+                            .then(snapshot => {
+                                const friendRestaurants = snapshot.val() || [];
+                                
+                                // Find matched restaurants
+                                const matchedRestaurants = [];
+                                for (const id of matchedIds) {
+                                    // Try to find in our restaurants first
+                                    const myRestaurant = restaurants.find(r => r.id === id);
+                                    if (myRestaurant) {
+                                        matchedRestaurants.push(myRestaurant);
+                                    } else {
+                                        // If not found, try to find in friend's restaurants
+                                        const friendRestaurant = friendRestaurants.find(r => r.id === id);
+                                        if (friendRestaurant) {
+                                            matchedRestaurants.push(friendRestaurant);
+                                        }
+                                    }
+                                }
+                                
+                                displayMatches(matchedRestaurants);
+                            });
+                    })
+                    .catch(error => {
+                        console.error("Error finding matches:", error);
+                        showError('Error finding matches. Please check the friend code.');
+                        showView(resultsView);
+                    });
+            } else {
+                // Fallback if Firebase isn't available - use the mock method
+                setTimeout(() => {
+                    const likedIds = Object.keys(likedRestaurants);
+                    const friendLikedIds = likedIds.filter(() => Math.random() > 0.5);
+                    const matchedIds = likedIds.filter(id => friendLikedIds.includes(id));
+                    const matchedRestaurants = restaurants.filter(restaurant => 
+                        matchedIds.includes(restaurant.id)
+                    );
+                    
+                    displayMatches(matchedRestaurants);
+                }, 1500);
+            }
+        }
+        
+        // Display matched restaurants
+        function displayMatches(matchedRestaurants) {
+            matchesList.innerHTML = '';
+            
+            if (matchedRestaurants.length > 0) {
+                matchedRestaurants.forEach(restaurant => {
+                    const item = document.createElement('div');
+                    item.className = 'restaurant-item';
+                    
+                    let priceText = '';
+                    for (let i = 0; i < restaurant.priceLevel; i++) {
+                        priceText += '$';
+                    }
+                    
+                    item.innerHTML = `
+                        <h3>${restaurant.name}</h3>
+                        <p>Cuisine: ${restaurant.cuisine}</p>
+                        <p>Rating: ${restaurant.rating} ★</p>
+                        <p class="price-level">Price: ${priceText}</p>
+                        <p>Address: ${restaurant.address}</p>
+                    `;
+                    
+                    matchesList.appendChild(item);
+                });
+            } else {
+                matchesList.innerHTML = '<p>No matches found. Try with a different friend!</p>';
+            }
+            
+            showView(matchesView);
+        }
+        
+        // Reset app to initial state
+        function resetApp() {
+            locationInput.value = '';
+            restaurants = [];
+            currentIndex = 0;
+            likedRestaurants = {};
+            sessionId = '';
+            friendCodeInput.value = '';
+            hideError();
+            
+            showView(searchView);
+        }
+        
+        // Event listeners
+        searchForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (!locationInput.value) {
+                showError('Please enter a location');
+                return;
+            }
+            fetchRestaurants();
+        });
+        
+        dislikeButton.addEventListener('click', function() {
+            handleSwipe(false);
+        });
+        
+        likeButton.addEventListener('click', function() {
+            handleSwipe(true);
+        });
+        
+        infoButton.addEventListener('click', function() {
+            const restaurant = restaurants[currentIndex];
+            alert(`
+                ${restaurant.name}
+                
+                Cuisine: ${restaurant.cuisine}
+                Rating: ${restaurant.rating} ★
+                Address: ${restaurant.address}
+                
+                This is a great place to eat!
+            `);
+        });
+        
+        findMatchesButton.addEventListener('click', findMatches);
+        startOverButton.addEventListener('click', resetApp);
+        matchesStartOverButton.addEventListener('click', resetApp);
+        
+        // Initialize app
+        showView(searchView);
+    </script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+
+    <script>
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDauSN6vYVefIYHYdx54hIsXWeTxp-CgrM",
+            authDomain: "restaurant-finder-36e61.firebaseapp.com",
+            databaseURL: "https://restaurant-finder-36e61-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "restaurant-finder-36e61",
+            storageBucket: "restaurant-finder-36e61.firebasestorage.app",
+            messagingSenderId: "266887715200",
+            appId: "1:266887715200:web:6c68d924d7596cdfb44965",
+            measurementId: "G-TD5GNXZZMN"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+    </script>
+</body>
+</html>
