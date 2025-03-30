@@ -93,10 +93,60 @@
             position: relative;
         }
         
-        .card-img {
+        .photo-container {
+            position: relative;
             width: 100%;
             height: 60%;
+            overflow: hidden;
+        }
+        
+        .card-img {
+            width: 100%;
+            height: 100%;
             object-fit: cover;
+        }
+        
+        .photo-nav {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .photo-nav-btn {
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0 5px;
+        }
+        
+        .photo-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.5);
+            margin: 0 4px;
+            display: inline-block;
+        }
+        
+        .photo-dot.active {
+            background-color: #fff;
+        }
+        
+        #photo-indicators {
+            display: flex;
+            justify-content: center;
+            margin: 0 10px;
         }
         
         .card-content {
@@ -322,7 +372,14 @@
             </div>
             
             <div class="card">
-                <img class="card-img" id="restaurant-image" src="" alt="Restaurant">
+                <div class="photo-container">
+                    <img class="card-img" id="restaurant-image" src="" alt="Restaurant">
+                    <div class="photo-nav">
+                        <button id="prev-photo" class="photo-nav-btn">❮</button>
+                        <div id="photo-indicators"></div>
+                        <button id="next-photo" class="photo-nav-btn">❯</button>
+                    </div>
+                </div>
                 <div class="card-content">
                     <h2 class="card-title" id="restaurant-name"></h2>
                     <p class="card-info" id="restaurant-cuisine"></p>
@@ -406,6 +463,10 @@
         const restaurantRating = document.getElementById('restaurant-rating');
         const restaurantPrice = document.getElementById('restaurant-price');
         const restaurantAddress = document.getElementById('restaurant-address');
+        
+        const prevPhotoBtn = document.getElementById('prev-photo');
+        const nextPhotoBtn = document.getElementById('next-photo');
+        const photoIndicators = document.getElementById('photo-indicators');
         
         const dislikeButton = document.getElementById('dislike-button');
         const infoButton = document.getElementById('info-button');
@@ -639,6 +700,21 @@
                     
                     // Format results for our app
                     restaurants = limitedResults.map(place => {
+                        // Get up to 5 photos
+                        const photoUrls = [];
+                        if (place.photos) {
+                            // Get up to 5 photos or as many as available
+                            const photoCount = Math.min(5, place.photos.length);
+                            for (let i = 0; i < photoCount; i++) {
+                                photoUrls.push(place.photos[i].getUrl({ maxWidth: 600, maxHeight: 400 }));
+                            }
+                        }
+                        
+                        // If no photos available, add placeholder
+                        if (photoUrls.length === 0) {
+                            photoUrls.push("https://placehold.co/600x400?text=No+Image");
+                        }
+                        
                         return {
                             id: place.place_id,
                             name: place.name,
@@ -646,9 +722,8 @@
                             cuisine: cuisine || getCuisineFromTypes(place.types),
                             rating: place.rating || "No ratings yet",
                             priceLevel: place.price_level || 1,
-                            photoUrl: place.photos && place.photos[0] ? 
-                                    place.photos[0].getUrl({ maxWidth: 500, maxHeight: 300 }) : 
-                                    "https://placehold.co/600x400?text=No+Image"
+                            photoUrls: photoUrls,
+                            currentPhotoIndex: 0 // Track which photo is currently displayed
                         };
                     });
                     
@@ -692,7 +767,9 @@
             const mockImageUrls = [
                 "https://placehold.co/600x400?text=Restaurant",
                 "https://placehold.co/600x400?text=Food",
-                "https://placehold.co/600x400?text=Dining"
+                "https://placehold.co/600x400?text=Dining",
+                "https://placehold.co/600x400?text=Meal",
+                "https://placehold.co/600x400?text=Cuisine"
             ];
             
             const cuisineTypes = [
@@ -722,6 +799,13 @@
                     address = `${Math.floor(Math.random() * 1000)} Main St, ${location}`;
                 }
                 
+                // Generate 2-5 random images for each restaurant
+                const photoCount = Math.floor(Math.random() * 4) + 2; // 2 to 5 photos
+                const photoUrls = [];
+                for (let j = 0; j < photoCount; j++) {
+                    photoUrls.push(mockImageUrls[Math.floor(Math.random() * mockImageUrls.length)]);
+                }
+                
                 restaurants.push({
                     id: `restaurant-${i}`,
                     name: `${useCuisine} Restaurant ${i + 1}`,
@@ -729,7 +813,8 @@
                     cuisine: useCuisine,
                     rating: (3 + Math.random() * 2).toFixed(1),
                     priceLevel: usePrice,
-                    photoUrl: mockImageUrls[Math.floor(Math.random() * mockImageUrls.length)]
+                    photoUrls: photoUrls,
+                    currentPhotoIndex: 0
                 });
             }
             
@@ -760,8 +845,30 @@
             currentIndexSpan.textContent = currentIndex + 1;
             totalRestaurantsSpan.textContent = restaurants.length;
             
-            restaurantImage.src = restaurant.photoUrl;
+            // Display the current photo
+            restaurantImage.src = restaurant.photoUrls[restaurant.currentPhotoIndex];
             restaurantImage.alt = restaurant.name;
+            
+            // Update photo indicators
+            photoIndicators.innerHTML = '';
+            for (let i = 0; i < restaurant.photoUrls.length; i++) {
+                const dot = document.createElement('span');
+                dot.className = 'photo-dot' + (i === restaurant.currentPhotoIndex ? ' active' : '');
+                photoIndicators.appendChild(dot);
+            }
+            
+            // Show/hide navigation buttons based on photo count
+            if (restaurant.photoUrls.length <= 1) {
+                prevPhotoBtn.style.display = 'none';
+                nextPhotoBtn.style.display = 'none';
+                photoIndicators.style.display = 'none';
+            } else {
+                prevPhotoBtn.style.display = 'block';
+                nextPhotoBtn.style.display = 'block';
+                photoIndicators.style.display = 'flex';
+            }
+            
+            // Update restaurant info
             restaurantName.textContent = restaurant.name;
             restaurantCuisine.textContent = `Cuisine: ${restaurant.cuisine}`;
             restaurantRating.textContent = `Rating: ${restaurant.rating} ★`;
@@ -785,8 +892,7 @@
                     firebase.database().ref('sessions/' + sessionId + '/likes/' + restaurants[currentIndex].id).set(true);
                 }
             }
-            
-            if (currentIndex < restaurants.length - 1) {
+if (currentIndex < restaurants.length - 1) {
                 currentIndex++;
                 updateRestaurantDisplay();
             } else {
@@ -883,7 +989,7 @@
                     }
                     
                     item.innerHTML = `
-                         <h3>${restaurant.name}</h3>
+                        <h3>${restaurant.name}</h3>
                         <p>Cuisine: ${restaurant.cuisine}</p>
                         <p>Rating: ${restaurant.rating} ★</p>
                         <p class="price-level">Price: ${priceText}</p>
@@ -924,6 +1030,21 @@
         });
         
         useLocationButton.addEventListener('click', getUserLocation);
+        
+        // Photo navigation event listeners
+        prevPhotoBtn.addEventListener('click', function(e) {
+            e.stopPropagation(); // Prevent this click from triggering card actions
+            const restaurant = restaurants[currentIndex];
+            restaurant.currentPhotoIndex = (restaurant.currentPhotoIndex - 1 + restaurant.photoUrls.length) % restaurant.photoUrls.length;
+            updateRestaurantDisplay();
+        });
+        
+        nextPhotoBtn.addEventListener('click', function(e) {
+            e.stopPropagation(); // Prevent this click from triggering card actions
+            const restaurant = restaurants[currentIndex];
+            restaurant.currentPhotoIndex = (restaurant.currentPhotoIndex + 1) % restaurant.photoUrls.length;
+            updateRestaurantDisplay();
+        });
         
         dislikeButton.addEventListener('click', function() {
             handleSwipe(false);
@@ -991,5 +1112,4 @@
         firebase.initializeApp(firebaseConfig);
     </script>
 </body>
-</html>
 </html>
