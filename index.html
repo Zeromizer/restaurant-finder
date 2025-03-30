@@ -60,7 +60,7 @@
         /* Specific button colors */
         .button.secondary { background-color: #007bff; border-color: #007bff; }
         .button.tertiary { background-color: #6c757d; border-color: #6c757d; }
-        .button.copy-button { font-size: 1.2em; background: none; border: none; color: #555; width: auto; padding: 5px; vertical-align: middle; }
+        .button.copy-button { font-size: 1.2em; background: none; border: none; color: #555; width: auto; padding: 5px; vertical-align: middle; cursor:pointer; }
 
 
         .location-button { width: 100%; margin-top: 10px; }
@@ -180,7 +180,7 @@
             <button class="button" id="matches-start-over-button" style="margin-top:20px;">Start Over</button>
         </div>
 
-        <!-- *** ADDED: Shared View *** -->
+        <!-- Shared View -->
         <div id="shared-view" class="view transition-hidden">
              <div class="header"> <h1>Shared Restaurant List</h1> <p id="shared-list-source">List from a friend</p> </div>
              <div id="shared-restaurants-list" class="restaurant-list">
@@ -195,7 +195,6 @@
     <script>
         // --- JS Code ---
         const views = { search: document.getElementById('search-view'), loading: document.getElementById('loading-view'), swipe: document.getElementById('swipe-view'), results: document.getElementById('results-view'), matches: document.getElementById('matches-view'),
-                      // *** ADDED: shared view reference ***
                       shared: document.getElementById('shared-view') };
         const searchForm = document.getElementById('search-form');
         const locationInput = document.getElementById('location');
@@ -204,16 +203,14 @@
         const priceLevelSelect = document.getElementById('price-level');
         const cuisineKeywordInput = document.getElementById('cuisine-keyword');
         const searchButton = document.getElementById('search-button');
-        const loadingText = document.getElementById('loading-text'); // Reference loading text
+        const loadingText = document.getElementById('loading-text');
         const swipeUI = { currentIndex: document.getElementById('current-index'), totalRestaurants: document.getElementById('total-restaurants'), image: document.getElementById('restaurant-image'), name: document.getElementById('restaurant-name'), cuisine: document.getElementById('restaurant-cuisine'), rating: document.getElementById('restaurant-rating'), price: document.getElementById('restaurant-price'), address: document.getElementById('restaurant-address'), prevPhotoBtn: document.getElementById('prev-photo'), nextPhotoBtn: document.getElementById('next-photo'), photoIndicators: document.getElementById('photo-indicators'), dislikeButton: document.getElementById('dislike-button'), likeButton: document.getElementById('like-button'), mapsLinkPlaceholder: document.getElementById('google-maps-link-placeholder') };
         const resultsUI = { likedCount: document.getElementById('liked-count'), sessionId: document.getElementById('session-id'), friendCodeInput: document.getElementById('friend-code'), findMatchesButton: document.getElementById('find-matches-button'), startOverButton: document.getElementById('start-over-button'), copyCodeButton: document.getElementById('copy-code-button'),
                          viewLikedButton: document.getElementById('view-liked-button'), likedListContainer: document.getElementById('liked-restaurants-list'),
-                         // *** ADDED: Share link elements ***
                          shareLinkSection: document.getElementById('share-link-section'),
                          shareLinkInput: document.getElementById('share-link-input'),
                          copyLinkButton: document.getElementById('copy-link-button') };
         const matchesUI = { list: document.getElementById('matches-list'), startOverButton: document.getElementById('matches-start-over-button') };
-        // *** ADDED: Shared view UI references ***
         const sharedUI = { list: document.getElementById('shared-restaurants-list'), startOverButton: document.getElementById('shared-start-over-button'), sourceText: document.getElementById('shared-list-source') };
         const errorContainer = document.getElementById('error-container');
 
@@ -229,25 +226,124 @@
         function showView(viewToShow) { Object.values(views).forEach(view => { if (view !== viewToShow) view.classList.add('transition-hidden'); }); viewToShow.classList.remove('transition-hidden'); currentVisibleView = viewToShow; window.scrollTo(0, 0); }
         function showError(message) { errorContainer.textContent = message; errorContainer.classList.remove('hidden'); }
         function hideError() { errorContainer.classList.add('hidden'); errorContainer.textContent = ''; }
-        // Update loading text
         function setLoadingText(text) { loadingText.textContent = text; }
 
         // --- Google Maps & Places API Functions ---
-        function loadGoogleMapsScript() { /* ... unchanged ... */ }
-        window.initMapServices = function() { /* ... unchanged ... */ };
-        function initAutocomplete() { /* ... unchanged ... */ }
-        function getUserLocation() { /* ... unchanged ... */ }
-        function fetchRestaurants() { /* ... unchanged ... */ }
-        function performNearbySearch(coords, radius, keyword, priceLevel) { /* ... unchanged ... */ }
-        function getPlaceDetails(placeIds) { /* ... unchanged ... */ }
-        async function processRestaurantResults(results, searchKeyword) { /* ... unchanged ... */ }
-        function getCuisineFromTypes(types) { /* ... unchanged ... */ }
-        function createGoogleMapsLink(restaurant) { /* ... unchanged ... */ }
+        function loadGoogleMapsScript() {
+            if (document.getElementById('google-maps-script')) return;
+            const script = document.createElement('script'); script.id = 'google-maps-script';
+            const apiKey = "AIzaSyCHBWV_-CcYHftllY2aZ22SfSySw9PjqFo"; // Your key
+            if (!apiKey || apiKey === "YOUR_GOOGLE_MAPS_API_KEY" || apiKey.length < 20) { console.error("Google Maps API Key missing/invalid!"); showError("Map services not configured."); locationInput.disabled = true; useLocationButton.disabled = true; searchButton.disabled = true; return; }
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry&callback=initMapServices`;
+            script.async = true; script.defer = true;
+            script.onerror = () => { console.error("Failed to load Google Maps script."); showError("Failed to load location services."); };
+            document.head.appendChild(script);
+        }
+        window.initMapServices = function() { console.log("Google Maps API loaded."); initAutocomplete(); };
+        function initAutocomplete() {
+            if (typeof google === 'undefined' || !google.maps?.places?.Autocomplete) { console.error("Autocomplete library not ready."); showError("Location search failed."); return; }
+            try {
+                autocomplete = new google.maps.places.Autocomplete(locationInput, { types: ['geocode', 'establishment'], fields: ['geometry', 'name', 'formatted_address', 'place_id'], componentRestrictions: { country: [] } });
+                autocomplete.addListener('place_changed', () => {
+                    const place = autocomplete.getPlace(); hideError();
+                    if (!place.geometry?.location) { userCoordinates = null; return; }
+                    userCoordinates = { lat: place.geometry.location.lat(), lng: place.geometry.location.lng() };
+                    console.log("Place selected:", place.name); locationInput.value = place.formatted_address || place.name;
+                }); console.log("Autocomplete initialized.");
+            } catch (error) { console.error("Error initializing Autocomplete:", error); showError("Failed to init location search."); }
+        }
+        function getUserLocation() {
+             if (!navigator.geolocation) { showError("Geolocation not supported."); return; }
+             const btn = useLocationButton; btn.textContent = "Finding..."; btn.disabled = true; hideError();
+             navigator.geolocation.getCurrentPosition( (pos) => {
+                 userCoordinates = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                 console.log("Geolocation:", userCoordinates); locationInput.value = `Current Location (${userCoordinates.lat.toFixed(4)}, ${userCoordinates.lng.toFixed(4)})`;
+                 btn.textContent = "📍 My Location"; btn.disabled = false;
+             }, (err) => {
+                 console.error("Geolocation error:", err); let msg = "Could not get location."; switch(err.code){case 1:msg="Permission denied.";break; case 2:msg="Position unavailable.";break; case 3:msg="Timeout.";break;} showError(msg); userCoordinates = null; locationInput.value = ''; btn.textContent = "📍 My Location"; btn.disabled = false;
+             }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+         }
+        function fetchRestaurants() {
+            setLoadingText("Finding restaurants..."); // Reset loading text
+            showView(views.loading); hideError();
+            const locationText = locationInput.value.trim(), radius = parseInt(radiusSelect.value), priceLevel = priceLevelSelect.value, keyword = cuisineKeywordInput.value.trim();
+            if (typeof google === 'undefined' || !google.maps?.places) { showError("Location services not ready."); showView(views.search); return; }
+            if (userCoordinates) { performNearbySearch(userCoordinates, radius, keyword, priceLevel); }
+            else if (locationText && !locationText.startsWith("Current Location")) {
+                const geocoder = new google.maps.Geocoder();
+                geocoder.geocode({ address: locationText }, (results, status) => {
+                    if (status === 'OK' && results?.[0]?.geometry?.location) {
+                        userCoordinates = { lat: results[0].geometry.location.lat(), lng: results[0].geometry.location.lng() };
+                        performNearbySearch(userCoordinates, radius, keyword, priceLevel);
+                    } else { showError(`Could not find "${locationText}".`); showView(views.search); }
+                });
+            } else { showError("Please provide a location."); showView(views.search); }
+        }
+        function performNearbySearch(coords, radius, keyword, priceLevel) {
+            const placesService = new google.maps.places.PlacesService(document.createElement('div'));
+            let request = { location: new google.maps.LatLng(coords.lat, coords.lng), radius, type: 'restaurant' };
+            if (keyword) request.keyword = keyword;
+            if (priceLevel) { const price = parseInt(priceLevel); request.minPriceLevel = price; request.maxPriceLevel = price; }
+            console.log("Places Request:", request);
+            placesService.nearbySearch(request, (results, status) => {
+                console.log("Places Status:", status);
+                if (status === google.maps.places.PlacesServiceStatus.OK && results?.length > 0) {
+                    const operational = results.filter(p => p.business_status === 'OPERATIONAL').slice(0, 20);
+                    if (operational.length === 0) { showError(`No operational restaurants found.`); showView(views.search); return; }
+                    console.log("Found", operational.length, "operational restaurants.");
+                    processRestaurantResults(operational, keyword);
+                } else if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) { showError(`No restaurants found${keyword ? ` for "${keyword}"` : ''}.`); showView(views.search); }
+                 else { showError(`Places Error: ${status}`); showView(views.search); }
+            });
+        }
+        function getPlaceDetails(placeIds) {
+            const placesService = new google.maps.places.PlacesService(document.createElement('div'));
+            const promises = placeIds.map(id => new Promise(res => placesService.getDetails({ placeId: id, fields: ['photos', 'name'] }, (d, s) => res({ placeId: id, photos: (s === google.maps.places.PlacesServiceStatus.OK && d?.photos) ? d.photos : [] }))));
+            return Promise.all(promises);
+        }
+        async function processRestaurantResults(results, searchKeyword) {
+             try {
+                 const placeIds = results.map(r => r.place_id); const details = await getPlaceDetails(placeIds);
+                 const detailsMap = details.reduce((map, d) => { map[d.placeId] = d.photos; return map; }, {});
+                 restaurants = results.map(place => {
+                     const placePhotos = detailsMap[place.place_id] || place.photos || [];
+                     const photoUrls = placePhotos.slice(0, 5).map(p => p.getUrl ? p.getUrl({ maxWidth: 600 }) : null).filter(url => url);
+                     if (photoUrls.length === 0) { photoUrls.push("https://placehold.co/600x400/FF5864/white?text=No+Image"); }
+                     let displayCuisine = searchKeyword ? searchKeyword.trim().toLowerCase().replace(/\b\w/g, l => l.toUpperCase()) : getCuisineFromTypes(place.types || []);
+                     return { id: place.place_id, name: place.name || "Unnamed", address: place.vicinity || "Address unavailable", cuisine: displayCuisine, rating: place.rating ? `${place.rating}★ (${place.user_ratings_total || 0})` : "Not rated", priceLevel: place.price_level ?? 0, photoUrls, currentPhotoIndex: 0 };
+                 });
+                 if (restaurants.length === 0) { showError('No restaurants found.'); showView(views.search); return; }
+                 sessionId = generateSessionId(); saveSessionToFirebase();
+                 currentIndex = 0; likedRestaurants = {};
+                 updateRestaurantDisplay(); showView(views.swipe);
+             } catch (error) { console.error("Error processing results:", error); showError("Error loading details."); showView(views.search); }
+         }
+        function getCuisineFromTypes(types) { const typeMap={'cafe':'Cafe','bar':'Bar','bakery':'Bakery'}; const knownCuisines=["Italian","Chinese","Japanese","Mexican","Indian","Thai","American","French","Vietnamese","Korean","Mediterranean","Pizza","Sushi","Seafood","Steakhouse"]; for(const type of types){ const fmt=type.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase()); if(knownCuisines.includes(fmt))return fmt; if(typeMap[type])return typeMap[type]; } return types.includes('restaurant')?'Restaurant':'Food'; }
+        function createGoogleMapsLink(restaurant) { if (!restaurant) return null; let url; if (restaurant.id) { url = `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${restaurant.id}`; } else if (restaurant.name && restaurant.address) { const query = encodeURIComponent(`${restaurant.name}, ${restaurant.address}`); url = `https://www.google.com/maps/search/?api=1&query=${query}`; } else { return null; } const link = document.createElement('a'); link.href = url; link.textContent = "View on Google Maps ↗"; link.className = "google-maps-link"; link.target = "_blank"; link.rel = "noopener noreferrer"; return link; }
 
         // --- Swipe UI Functions ---
-        function updateRestaurantDisplay() { /* ... unchanged ... */ }
-        function changePhoto(direction) { /* ... unchanged ... */ }
-        function handleSwipe(liked) { /* ... unchanged ... */ }
+        function updateRestaurantDisplay() {
+            if (currentIndex >= restaurants.length) { showResultsView(); return; }
+            const restaurant = restaurants[currentIndex];
+            swipeUI.currentIndex.textContent = currentIndex + 1; swipeUI.totalRestaurants.textContent = restaurants.length;
+            restaurant.currentPhotoIndex = restaurant.currentPhotoIndex || 0; swipeUI.image.src = restaurant.photoUrls[restaurant.currentPhotoIndex]; swipeUI.image.alt = restaurant.name;
+            swipeUI.photoIndicators.innerHTML = ''; restaurant.photoUrls.forEach((_, index) => { const dot = document.createElement('span'); dot.className = 'photo-dot' + (index === restaurant.currentPhotoIndex ? ' active' : ''); swipeUI.photoIndicators.appendChild(dot); });
+            const showNav = restaurant.photoUrls.length > 1; swipeUI.prevPhotoBtn.style.display = showNav ? 'flex' : 'none'; swipeUI.nextPhotoBtn.style.display = showNav ? 'flex' : 'none'; swipeUI.photoIndicators.style.display = showNav ? 'flex' : 'none';
+            swipeUI.name.textContent = restaurant.name; swipeUI.cuisine.textContent = `Cuisine: ${restaurant.cuisine}`; swipeUI.rating.textContent = `Rating: ${restaurant.rating}`; swipeUI.price.textContent = `Price: ${restaurant.priceLevel > 0 ? '$'.repeat(restaurant.priceLevel) : 'N/A'}`; swipeUI.address.textContent = `Address: ${restaurant.address}`;
+            swipeUI.mapsLinkPlaceholder.innerHTML = ''; const mapsLink = createGoogleMapsLink(restaurant); if (mapsLink) swipeUI.mapsLinkPlaceholder.appendChild(mapsLink);
+            views.swipe.querySelector('.card-content').scrollTop = 0;
+        }
+        function changePhoto(direction) { if (currentIndex >= restaurants.length) return; const r=restaurants[currentIndex]; const num=r.photoUrls.length; if(num<=1)return; r.currentPhotoIndex=(r.currentPhotoIndex+direction+num)%num; updateRestaurantDisplay(); }
+        function handleSwipe(liked) {
+            if (currentIndex >= restaurants.length) return;
+            const restaurantId = restaurants[currentIndex].id;
+            if (liked) { likedRestaurants[restaurantId] = true; console.log("Liked:", restaurants[currentIndex].name); }
+             else { console.log("Disliked:", restaurants[currentIndex].name); }
+            saveLikesToFirebase();
+            currentIndex++;
+            if (currentIndex < restaurants.length) { updateRestaurantDisplay(); }
+             else { showResultsView(); }
+        }
 
         // --- Results & Matching Functions ---
         function showResultsView() {
@@ -255,203 +351,110 @@
             resultsUI.likedCount.textContent = likedCount;
             resultsUI.sessionId.textContent = sessionId;
             resultsUI.friendCodeInput.value = '';
-
             populateLikedRestaurantsList();
             resultsUI.likedListContainer.classList.add('hidden');
             resultsUI.viewLikedButton.textContent = 'View My Liked Restaurants';
             resultsUI.viewLikedButton.style.display = likedCount > 0 ? 'block' : 'none';
-
-            // *** ADDED: Generate and display share link ***
             generateShareLink();
-            resultsUI.shareLinkSection.style.display = likedCount > 0 ? 'block' : 'none'; // Show share section only if likes exist
-
+            resultsUI.shareLinkSection.style.display = likedCount > 0 ? 'block' : 'none';
             showView(views.results);
         }
-
         function populateLikedRestaurantsList() {
-            // This function remains the same as before, populating resultsUI.likedListContainer
             const likedListContainer = resultsUI.likedListContainer;
             likedListContainer.innerHTML = '';
-
             const myLikedIds = Object.keys(likedRestaurants);
             const likedRestaurantDetails = restaurants.filter(r => myLikedIds.includes(r.id));
-
             if (likedRestaurantDetails.length > 0) {
-                 const listTitle = document.createElement('h3');
-                 listTitle.style.padding = '15px 15px 0 15px'; listTitle.style.marginBottom = '10px';
-                 listTitle.textContent = "Your Liked Restaurants:"; listTitle.style.textAlign = 'center';
-                 likedListContainer.appendChild(listTitle);
-                likedRestaurantDetails.forEach(r => { createRestaurantItemElement(r, likedListContainer); }); // Use helper
-            } else {
-                likedListContainer.innerHTML = '<p style="text-align:center; padding:20px;">You haven\'t liked any restaurants yet.</p>';
-            }
+                 const listTitle = document.createElement('h3'); listTitle.style.padding = '15px 15px 0 15px'; listTitle.style.marginBottom = '10px'; listTitle.textContent = "Your Liked Restaurants:"; listTitle.style.textAlign = 'center'; likedListContainer.appendChild(listTitle);
+                likedRestaurantDetails.forEach(r => { createRestaurantItemElement(r, likedListContainer); });
+            } else { likedListContainer.innerHTML = '<p style="text-align:center; padding:20px;">You haven\'t liked any restaurants yet.</p>'; }
         }
-
-        function findMatches() { /* ... unchanged ... */ }
-
+        function findMatches() {
+            const friendCode = resultsUI.friendCodeInput.value.trim().toUpperCase();
+            if (!friendCode) { showError('Please enter your friend\'s code.'); return; }
+            if (friendCode === sessionId) { showError('You cannot match with your own code!'); return; }
+            setLoadingText("Finding matches..."); // Update loading text
+            showView(views.loading); hideError();
+            if (typeof firebase === 'undefined' || !firebase.apps.length) { console.warn("Firebase not init."); showError("Matching unavailable."); setTimeout(() => { displayMatches([]); showView(views.matches); }, 1500); return; }
+            firebase.database().ref('sessions/' + friendCode).once('value').then(snap => {
+                const friendData = snap.val();
+                if (!friendData) { showError(`Friend code "${friendCode}" not found.`); showView(views.results); return; }
+                const friendLikes=friendData.likes||{}; const friendLikedIds=Object.keys(friendLikes); const myLikedIds=Object.keys(likedRestaurants);
+                const matchedIds=myLikedIds.filter(id=>friendLikedIds.includes(id));
+                const friendRestaurantsData=friendData.restaurants||[]; const friendMap=friendRestaurantsData.reduce((map,r)=>{map[r.id]=r;return map;},{});
+                const myMap=restaurants.reduce((map,r)=>{map[r.id]=r;return map;},{}); // Use current session data as fallback
+                const matchedRestaurants=matchedIds.map(id=>friendMap[id]||myMap[id]).filter(r=>r); // Get details, ensuring photos are available from friendMap
+                console.log("Matches found:", matchedRestaurants); displayMatches(matchedRestaurants);
+            }).catch(err => { console.error("Match error:", err); showError('Could not get friend data.'); showView(views.results); });
+        }
         function displayMatches(matchedRestaurants) {
             const matchesListContainer = matchesUI.list;
-            matchesListContainer.innerHTML = ''; // Clear previous matches
+            matchesListContainer.innerHTML = '';
             if (matchedRestaurants.length > 0) {
-                 // Optional Title:
-                 // const listTitle = document.createElement('h3'); listTitle.style.padding = '15px 15px 0 15px'; listTitle.style.marginBottom = '10px'; listTitle.textContent = "Your Matches:"; listTitle.style.textAlign = 'center'; matchesListContainer.appendChild(listTitle);
-                matchedRestaurants.forEach(r => { createRestaurantItemElement(r, matchesListContainer); }); // Use helper
-            } else {
-                matchesListContainer.innerHTML = '<p style="text-align:center; padding:20px;">No common matches found!</p>';
-            }
+                matchedRestaurants.forEach(r => { createRestaurantItemElement(r, matchesListContainer); });
+            } else { matchesListContainer.innerHTML = '<p style="text-align:center; padding:20px;">No common matches found!</p>'; }
             showView(views.matches);
         }
-
-        // *** ADDED: Helper to create restaurant item HTML (used by liked, matched, shared) ***
         function createRestaurantItemElement(r, container) {
-            const item = document.createElement('div');
-            item.className = 'restaurant-item';
-
-            const imageUrl = (r.photoUrls && r.photoUrls.length > 0)
-                ? r.photoUrls[0]
-                : "https://placehold.co/300x150/cccccc/ffffff?text=No+Image";
-
+            const item = document.createElement('div'); item.className = 'restaurant-item';
+            const imageUrl = (r.photoUrls && r.photoUrls.length > 0) ? r.photoUrls[0] : "https://placehold.co/300x150/cccccc/ffffff?text=No+Image";
             const priceDisplay = r.priceLevel > 0 ? '$'.repeat(r.priceLevel) : 'N/A';
-
-            item.innerHTML = `
-                <img src="${imageUrl}" alt="${r.name}" class="liked-item-image">
-                <div class="restaurant-item-content">
-                    <h3>${r.name}</h3>
-                    <p>Cuisine: ${r.cuisine}</p>
-                    <p>Rating: ${r.rating}</p>
-                    <p class="price-level">Price: ${priceDisplay}</p>
-                    <p>Address: ${r.address}</p>
-                </div>
-            `;
-
+            item.innerHTML = `<img src="${imageUrl}" alt="${r.name}" class="liked-item-image"><div class="restaurant-item-content"><h3>${r.name}</h3><p>Cuisine: ${r.cuisine}</p><p>Rating: ${r.rating}</p><p class="price-level">Price: ${priceDisplay}</p><p>Address: ${r.address}</p></div>`;
             const contentDiv = item.querySelector('.restaurant-item-content');
-            if(contentDiv){
-               const mapsLink = createGoogleMapsLink(r);
-               if (mapsLink) { contentDiv.appendChild(mapsLink); }
-            }
+            if(contentDiv){ const mapsLink = createGoogleMapsLink(r); if (mapsLink) { contentDiv.appendChild(mapsLink); } }
             container.appendChild(item);
         }
 
-
         // --- Sharing Functions ---
-
         function generateShareLink() {
-            if (!sessionId) {
-                resultsUI.shareLinkInput.value = 'Error: No session ID.';
-                resultsUI.copyLinkButton.disabled = true;
-                return;
-            }
-            // Construct the URL: base URL + path + query parameter
-            const baseUrl = window.location.origin + window.location.pathname;
-            const shareUrl = `${baseUrl}?share=${sessionId}`;
-            resultsUI.shareLinkInput.value = shareUrl;
-            resultsUI.copyLinkButton.disabled = false;
+            if (!sessionId) { resultsUI.shareLinkInput.value = 'Error: No session ID.'; resultsUI.copyLinkButton.disabled = true; return; }
+            const baseUrl = window.location.origin + window.location.pathname; const shareUrl = `${baseUrl}?share=${sessionId}`;
+            resultsUI.shareLinkInput.value = shareUrl; resultsUI.copyLinkButton.disabled = false;
         }
-
         function copyShareLink() {
-            const link = resultsUI.shareLinkInput.value;
-            if (!link || !navigator.clipboard) {
-                showError("Cannot copy link. Try selecting manually.");
-                return;
-            }
-            navigator.clipboard.writeText(link).then(() => {
-                const originalText = resultsUI.copyLinkButton.textContent;
-                resultsUI.copyLinkButton.textContent = '✅'; // Indicate success
-                setTimeout(() => { resultsUI.copyLinkButton.textContent = '📋'; }, 1500);
-            }).catch(err => {
-                console.error('Failed to copy share link:', err);
-                showError("Failed to copy link automatically.");
-            });
+            const link = resultsUI.shareLinkInput.value; if (!link || !navigator.clipboard) { showError("Cannot copy link. Try selecting manually."); return; }
+            navigator.clipboard.writeText(link).then(() => { const originalText = resultsUI.copyLinkButton.textContent; resultsUI.copyLinkButton.textContent = '✅'; setTimeout(() => { resultsUI.copyLinkButton.textContent = '📋'; }, 1500); }).catch(err => { console.error('Failed to copy share link:', err); showError("Failed to copy link automatically."); });
         }
-
-        // *** ADDED: Function to handle incoming share link ***
         async function handleSharedLink(sharedSessionId) {
-             console.log("Handling shared link for session:", sharedSessionId);
-             setLoadingText("Loading shared list..."); // Update loading text
-             showView(views.loading); // Show loading view
-             hideError();
-
-            if (typeof firebase === 'undefined' || !firebase.apps.length) {
-                showError("Cannot load shared list: Connection error.");
-                 showView(views.shared); // Show shared view with error potentially
-                 sharedUI.list.innerHTML = '<p class="error-message">Cannot load shared list: Connection error.</p>';
-                 return;
-            }
-
+             console.log("Handling shared link for session:", sharedSessionId); setLoadingText("Loading shared list..."); showView(views.loading); hideError();
+             if (typeof firebase === 'undefined' || !firebase.apps.length) { showError("Cannot load shared list: Connection error."); sharedUI.list.innerHTML = '<p class="error-message">Cannot load shared list: Connection error.</p>'; showView(views.shared); return; }
              try {
                  const sessionData = await fetchSharedSessionData(sharedSessionId);
-
-                 if (!sessionData) {
-                     showError(`Shared list "${sharedSessionId}" not found or has expired.`);
-                     sharedUI.list.innerHTML = `<p class="error-message">Shared list "${sharedSessionId}" not found or has expired.</p>`;
-                     showView(views.shared);
-                     return;
-                 }
-
-                 const sharedLikes = sessionData.likes || {};
-                 const sharedLikedIds = Object.keys(sharedLikes);
-                 const sharedRestaurants = sessionData.restaurants || [];
-
-                 if (sharedLikedIds.length === 0 || sharedRestaurants.length === 0) {
-                    sharedUI.list.innerHTML = '<p style="text-align:center; padding:20px;">This shared list is empty.</p>';
-                    showView(views.shared);
-                     return;
-                 }
-
-                 // Filter the full restaurant list for only the liked ones
+                 if (!sessionData) { showError(`Shared list "${sharedSessionId}" not found or has expired.`); sharedUI.list.innerHTML = `<p class="error-message">Shared list "${sharedSessionId}" not found or has expired.</p>`; showView(views.shared); return; }
+                 const sharedLikes = sessionData.likes || {}; const sharedLikedIds = Object.keys(sharedLikes); const sharedRestaurants = sessionData.restaurants || [];
+                 if (sharedLikedIds.length === 0 || sharedRestaurants.length === 0) { sharedUI.list.innerHTML = '<p style="text-align:center; padding:20px;">This shared list is empty.</p>'; showView(views.shared); return; }
                  const likedRestaurantDetails = sharedRestaurants.filter(r => sharedLikedIds.includes(r.id));
-
                  displaySharedRestaurants(likedRestaurantDetails);
-
-             } catch (error) {
-                 console.error("Error fetching shared session:", error);
-                 showError("Could not load the shared list.");
-                 sharedUI.list.innerHTML = `<p class="error-message">Could not load the shared list.</p>`;
-                 showView(views.shared);
-             }
-        }
-
-         // *** ADDED: Function to fetch specific session data ***
-         function fetchSharedSessionData(sessionIdToFetch) {
-             if (!sessionIdToFetch) return Promise.resolve(null);
-             return firebase.database().ref('sessions/' + sessionIdToFetch).once('value')
-                 .then(snapshot => snapshot.val()); // Returns the data or null
+             } catch (error) { console.error("Error fetching shared session:", error); showError("Could not load the shared list."); sharedUI.list.innerHTML = `<p class="error-message">Could not load the shared list.</p>`; showView(views.shared); }
          }
-
-         // *** ADDED: Function to display the fetched shared restaurants ***
+         function fetchSharedSessionData(sessionIdToFetch) { if (!sessionIdToFetch) return Promise.resolve(null); return firebase.database().ref('sessions/' + sessionIdToFetch).once('value').then(snapshot => snapshot.val()); }
          function displaySharedRestaurants(sharedRestaurantList) {
-            const container = sharedUI.list;
-            container.innerHTML = ''; // Clear loading/error message
-
-            if (sharedRestaurantList.length > 0) {
-                 // Optional Title
-                 // const listTitle = document.createElement('h3'); ...
-                 sharedRestaurantList.forEach(r => { createRestaurantItemElement(r, container); }); // Reuse helper
-             } else {
-                 // This case handled in handleSharedLink, but good fallback
-                 container.innerHTML = '<p style="text-align:center; padding:20px;">This shared list is empty or could not be loaded.</p>';
-             }
-             sharedUI.sourceText.textContent = `Viewing a shared list`; // Update header text slightly
-             showView(views.shared); // Show the populated shared view
+            const container = sharedUI.list; container.innerHTML = '';
+            if (sharedRestaurantList.length > 0) { sharedRestaurantList.forEach(r => { createRestaurantItemElement(r, container); }); }
+            else { container.innerHTML = '<p style="text-align:center; padding:20px;">This shared list is empty or could not be loaded.</p>'; }
+            sharedUI.sourceText.textContent = `Viewing a shared list`; showView(views.shared);
          }
 
         // --- Firebase Integration ---
-        function generateSessionId() { /* ... unchanged ... */ }
+        function generateSessionId() { return Math.random().toString(36).substring(2, 10).toUpperCase(); }
         function saveSessionToFirebase() {
             if(typeof firebase==='undefined'||!firebase.apps.length||!sessionId)return;
-            // *** Ensure first photo URL is saved for sharing ***
-            const restaurantsToSave = restaurants.map(r => ({
-                 id: r.id, name: r.name, address: r.address, cuisine: r.cuisine,
-                 rating: r.rating, priceLevel: r.priceLevel,
-                 photoUrls: (r.photoUrls && r.photoUrls.length > 0) ? [r.photoUrls[0]] : [] // Save only first URL
-             }));
+            const restaurantsToSave = restaurants.map(r => ({ id: r.id, name: r.name, address: r.address, cuisine: r.cuisine, rating: r.rating, priceLevel: r.priceLevel, photoUrls: (r.photoUrls && r.photoUrls.length > 0) ? [r.photoUrls[0]] : [] }));
             const sessionData = { restaurants: restaurantsToSave, timestamp: firebase.database.ServerValue.TIMESTAMP, likes: {} };
-            firebase.database().ref('sessions/'+sessionId).set(sessionData)
-                .then(() => console.log("Session saved:", sessionId))
-                .catch(e=>console.error("Session save error:",e));
+            firebase.database().ref('sessions/'+sessionId).set(sessionData).then(() => console.log("Session saved:", sessionId)).catch(e=>console.error("Session save error:",e));
         }
-        function saveLikesToFirebase() { /* ... unchanged ... */ }
-        function initializeFirebase() { /* ... unchanged ... */ }
+        function saveLikesToFirebase() {
+            if(typeof firebase==='undefined'||!firebase.apps.length||!sessionId)return;
+            firebase.database().ref('sessions/'+sessionId+'/likes').set(likedRestaurants).then(() => console.log("Likes updated for:", sessionId)).catch(e=>console.error("Likes update error:",e));
+        }
+        function initializeFirebase() {
+            if(typeof firebase==='undefined'||typeof firebase.initializeApp==='undefined'){console.warn("Firebase SDK not ready.");return;}
+            try{
+                 const cfg={apiKey:"AIzaSyDauSN6vXVeflYHYdx54hIsXWeTxp-CarM",authDomain:"restaurant-finder-36e61.firebaseapp.com",databaseURL:"https://restaurant-finder-36e61-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"restaurant-finder-36e61",storageBucket:"restaurant-finder-36e61.appspot.com",messagingSenderId:"266887715200",appId:"1:266887715200:web:6c68d924d7596cdfb44965",measurementId:"G-TD5GNXZZMN"};
+                 if (!firebase.apps.length) {firebase.initializeApp(cfg);console.log("Firebase initialized.");}
+                 else {console.log("Firebase already initialized.");}
+            }catch(e){console.error("Firebase init error:",e);showError("Sharing unavailable."); resultsUI.findMatchesButton.disabled = true; resultsUI.copyCodeButton.disabled = true; resultsUI.copyLinkButton.disabled = true;}
+        }
 
         // --- Utility & Event Listeners ---
         function resetApp() {
@@ -459,19 +462,21 @@
             restaurants=[]; currentIndex=0; likedRestaurants={}; sessionId=''; userCoordinates=null;
             resultsUI.likedListContainer.innerHTML = ''; resultsUI.likedListContainer.classList.add('hidden');
             resultsUI.viewLikedButton.textContent = 'View My Liked Restaurants';
-            resultsUI.shareLinkInput.value = ''; // Clear share link
-            resultsUI.copyLinkButton.disabled = true;
-            matchesUI.list.innerHTML = ''; // Clear matches list
-            sharedUI.list.innerHTML = ''; // Clear shared list display
-
+            resultsUI.shareLinkInput.value = ''; resultsUI.copyLinkButton.disabled = true;
+            matchesUI.list.innerHTML = ''; sharedUI.list.innerHTML = '';
             hideError();
-            // *** Important: Reset view back to search ***
-            showView(views.search);
-            console.log("App reset.");
+            // Ensure URL is cleaned up if resetting from a shared link view
+            if (window.location.search.includes('share=')) {
+                window.history.replaceState({}, document.title, window.location.pathname); // Remove query param
+            }
+            showView(views.search); console.log("App reset.");
         }
-        function copySessionId() { /* ... unchanged ... */ }
+        function copySessionId() {
+             const code=resultsUI.sessionId.textContent; if(!code||code==='CODE'||!navigator.clipboard){showError("Copy failed.");return;}
+             navigator.clipboard.writeText(code).then(()=>{const t=resultsUI.copyCodeButton.textContent;resultsUI.copyCodeButton.textContent='✅';setTimeout(()=>{resultsUI.copyCodeButton.textContent='📋';},1500);}).catch(err=>{console.error('Copy failed:',err);showError("Copy failed.");});
+        }
 
-        window.swipeUI = swipeUI; window.resultsUI = resultsUI; window.matchesUI = matchesUI; window.sharedUI = sharedUI; // Add sharedUI for debugging
+        window.swipeUI = swipeUI; window.resultsUI = resultsUI; window.matchesUI = matchesUI; window.sharedUI = sharedUI;
 
         // --- Event Listeners ---
         searchForm.addEventListener('submit', (e) => { e.preventDefault(); fetchRestaurants(); });
@@ -485,48 +490,59 @@
         resultsUI.copyCodeButton.addEventListener('click', copySessionId);
         resultsUI.sessionId.addEventListener('click', () => { if (resultsUI.sessionId.textContent !== 'CODE') { window.getSelection().selectAllChildren(resultsUI.sessionId); }});
         resultsUI.viewLikedButton.addEventListener('click', () => { const isHidden = resultsUI.likedListContainer.classList.toggle('hidden'); resultsUI.viewLikedButton.textContent = isHidden ? 'View My Liked Restaurants' : 'Hide My Liked Restaurants'; });
-        // *** ADDED: Listener for Copy Link button ***
         resultsUI.copyLinkButton.addEventListener('click', copyShareLink);
-
         matchesUI.startOverButton.addEventListener('click', resetApp);
-        // *** ADDED: Listener for Start Over button on Shared view ***
         sharedUI.startOverButton.addEventListener('click', resetApp);
 
 
-        // --- Initialization ---
+        // --- Initialization (CORRECTED) ---
         document.addEventListener('DOMContentLoaded', () => {
             console.log("DOM loaded.");
 
-            // *** ADDED: Check for share parameter on load ***
+            // *** ALWAYS load Maps and initialize Firebase ***
+            loadGoogleMapsScript();
+            // Initialize Firebase slightly deferred to ensure SDKs load, but always run it
+            setTimeout(initializeFirebase, 500);
+
+            // *** Check for share parameter AFTER starting initializations ***
             const urlParams = new URLSearchParams(window.location.search);
             const shareId = urlParams.get('share');
 
             if (shareId) {
-                // If share ID exists, try to load it immediately
-                // Firebase needs to initialize first
+                // If share ID exists, prepare to handle it after Firebase is ready.
+                // Show loading view immediately while waiting for Firebase.
+                setLoadingText("Loading shared list...");
+                showView(views.loading); // Show loading early
+
                 const firebaseInitInterval = setInterval(() => {
-                    if (typeof firebase !== 'undefined' && firebase.apps.length > 0) {
+                    // Check if Firebase is initialized
+                    if (typeof firebase !== 'undefined' && firebase.apps.length > 0 && firebase.database()) {
                         clearInterval(firebaseInitInterval);
+                        console.log("Firebase ready, handling shared link...");
                         handleSharedLink(shareId); // Handle the link AFTER Firebase is ready
-                    } else if (typeof firebase !== 'undefined' && typeof firebase.initializeApp === 'function') {
-                        // If SDK is loaded but not init, try initializing now
-                        initializeFirebase();
                     }
-                 }, 100); // Check every 100ms
+                    // Add a check for potential Firebase init errors that might stop loading
+                    // This check might need refinement depending on how initializeFirebase reports errors
+                    // For now, relies on the timeout as primary failure detection.
+
+                 }, 150); // Check slightly less frequently
+
                  // Timeout safeguard in case Firebase never loads/initializes
                  setTimeout(() => {
-                      if(currentVisibleView !== views.shared){ // If still haven't shown shared view
+                      // Check if we are still stuck on loading or haven't transitioned to shared view
+                      if(currentVisibleView === views.loading || currentVisibleView !== views.shared){
                          clearInterval(firebaseInitInterval);
-                         showError("Failed to initialize services to load shared list.");
-                         showView(views.search); // Fallback to search view
+                         console.error("Timeout waiting for Firebase initialization for shared link.");
+                         showError("Failed to initialize services to load shared list in time.");
+                         // Decide on a fallback view - Resetting is usually safest
+                         resetApp(); // Reset state and show search view
                       }
                  }, 10000); // 10 second timeout
 
             } else {
-                // Normal startup sequence
+                // Normal startup sequence: Just show the search view
+                // Maps and Firebase are already being initialized above.
                 showView(views.search);
-                loadGoogleMapsScript();
-                setTimeout(initializeFirebase, 500);
             }
         });
 
