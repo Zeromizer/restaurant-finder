@@ -123,11 +123,16 @@
                 </div>
                  <div class="form-group"> <label for="radius">Distance (km)</label> <select id="radius" name="radius"> <option value="1000">1 km</option> <option value="2000" selected>2 km</option> <option value="5000">5 km</option> <option value="10000">10 km</option> <option value="20000">20 km</option> </select> </div>
                  <div class="form-group"> <label for="price-level">Price Level</label> <select id="price-level" name="price-level"> <option value="">Any</option> <option value="1">$ (Inexpensive)</option> <option value="2">$$ (Moderate)</option> <option value="3">$$$ (Expensive)</option> <option value="4">$$$$ (Very Expensive)</option> </select> </div>
-                 <div class="form-group"> <label for="cuisine">Cuisine Type (Optional)</label> <select id="cuisine" name="cuisine"> <option value="">Any</option> <option value="Italian">Italian</option> <option value="Chinese">Chinese</option> <option value="Japanese">Japanese</option> <option value="Mexican">Mexican</option> <option value="Indian">Indian</option> <option value="Thai">Thai</option> <option value="American">American</option> <option value="French">French</option> <option value="Vietnamese">Vietnamese</option> <option value="Korean">Korean</option> <option value="Mediterranean">Mediterranean</option> <option value="Pizza">Pizza</option> <option value="Sushi">Sushi</option> <option value="Cafe">Cafe</option> <option value="Bar">Bar</option> </select> </div>
+                 <!-- *** MODIFIED HERE: Changed select to input for flexible keyword search *** -->
+                 <div class="form-group">
+                    <label for="cuisine-keyword">Cuisine or Specific Dish (Optional)</label>
+                    <input type="text" id="cuisine-keyword" name="cuisine-keyword" placeholder="e.g., Italian, Pizza, Laksa, Cafe">
+                 </div>
                 <button type="submit" class="button" id="search-button">Find Restaurants</button>
             </form>
         </div>
 
+        <!-- Other Views (Loading, Swipe, Results, Matches) remain the same -->
         <div id="loading-view" class="view transition-hidden"> <div class="loading"><div class="spinner"></div><p>Finding restaurants...</p></div> </div>
         <div id="swipe-view" class="view transition-hidden"> <div class="header"> <h1>Find Your Match</h1> <p>Restaurant <span id="current-index">1</span> of <span id="total-restaurants">?</span></p> </div> <div class="card"> <div class="photo-container"> <img class="card-img" id="restaurant-image" src="..." alt="Restaurant"> <div class="photo-nav"> <button id="prev-photo" class="photo-nav-btn">❮</button> <div id="photo-indicators"></div> <button id="next-photo" class="photo-nav-btn">❯</button> </div> </div> <div class="card-content"> <h2 class="card-title" id="restaurant-name">...</h2> <p class="card-info" id="restaurant-cuisine">...</p> <p class="card-info" id="restaurant-rating">...</p> <p class="card-info" id="restaurant-price">...</p> <p class="card-info" id="restaurant-address">...</p> <div id="google-maps-link-placeholder"></div> </div> <div class="card-actions"> <div class="action-button dislike-button" id="dislike-button">❌</div> <div class="action-button like-button" id="like-button">❤️</div> </div> </div> </div>
         <div id="results-view" class="view transition-hidden"> <div class="header"> <h1>Your Results</h1> <p>You liked <span id="liked-count">0</span> restaurant(s)</p> </div> <div class="search-form"> <p style="text-align:center; margin-bottom:15px;">Share this code:</p> <p style="text-align:center; margin-bottom:20px;"> <strong id="session-id" style="font-size:1.5em; background-color:#eee; padding:5px 10px; border-radius:4px; user-select:all; cursor:pointer;">CODE</strong> <button id="copy-code-button" title="Copy Code" style="margin-left:10px; background:none; border:none; font-size:1.2em; cursor:pointer;">📋</button> </p> <div class="form-group"> <label for="friend-code">Enter Friend's Code</label> <input id="friend-code" type="text" placeholder="Paste friend's code"/> </div> <button class="button" id="find-matches-button">Find Matches</button> <button class="button" id="start-over-button" style="margin-top:15px; background-color:#6c757d; border-color:#6c757d;">Start Over</button> </div> </div>
@@ -135,36 +140,684 @@
     </div>
 
     <script>
-        // --- JS Code (Unchanged from previous correct version) ---
-        const views = { search: document.getElementById('search-view'), loading: document.getElementById('loading-view'), swipe: document.getElementById('swipe-view'), results: document.getElementById('results-view'), matches: document.getElementById('matches-view') }; const searchForm = document.getElementById('search-form'); const locationInput = document.getElementById('location'); const useLocationButton = document.getElementById('use-location-button'); const radiusSelect = document.getElementById('radius'); const priceLevelSelect = document.getElementById('price-level'); const cuisineSelect = document.getElementById('cuisine'); const searchButton = document.getElementById('search-button'); const swipeUI = { currentIndex: document.getElementById('current-index'), totalRestaurants: document.getElementById('total-restaurants'), image: document.getElementById('restaurant-image'), name: document.getElementById('restaurant-name'), cuisine: document.getElementById('restaurant-cuisine'), rating: document.getElementById('restaurant-rating'), price: document.getElementById('restaurant-price'), address: document.getElementById('restaurant-address'), prevPhotoBtn: document.getElementById('prev-photo'), nextPhotoBtn: document.getElementById('next-photo'), photoIndicators: document.getElementById('photo-indicators'), dislikeButton: document.getElementById('dislike-button'), likeButton: document.getElementById('like-button'), mapsLinkPlaceholder: document.getElementById('google-maps-link-placeholder') }; const resultsUI = { likedCount: document.getElementById('liked-count'), sessionId: document.getElementById('session-id'), friendCodeInput: document.getElementById('friend-code'), findMatchesButton: document.getElementById('find-matches-button'), startOverButton: document.getElementById('start-over-button'), copyCodeButton: document.getElementById('copy-code-button') }; const matchesUI = { list: document.getElementById('matches-list'), startOverButton: document.getElementById('matches-start-over-button') }; const errorContainer = document.getElementById('error-container'); let restaurants = []; let currentIndex = 0; let likedRestaurants = {}; let sessionId = ''; let userCoordinates = null; let autocomplete = null; let currentVisibleView = views.search;
-        function showView(viewToShow) { Object.values(views).forEach(view => { if (view !== viewToShow) view.classList.add('transition-hidden'); }); viewToShow.classList.remove('transition-hidden'); currentVisibleView = viewToShow; window.scrollTo(0, 0); } function showError(message) { errorContainer.textContent = message; errorContainer.classList.remove('hidden'); } function hideError() { errorContainer.classList.add('hidden'); errorContainer.textContent = ''; }
-         function loadGoogleMapsScript() { if (document.getElementById('google-maps-script')) return; const script = document.createElement('script'); script.id = 'google-maps-script'; const apiKey = "AIzaSyCHBWV_-CcYHftllY2aZ22SfSySw9PjqFo"; if (!apiKey || apiKey === "YOUR_GOOGLE_MAPS_API_KEY" || apiKey.length < 20) { console.error("Google Maps API Key missing/invalid!"); showError("Map services not configured."); locationInput.disabled = true; useLocationButton.disabled = true; searchButton.disabled = true; return; } script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry&callback=initMapServices`; script.async = true; script.defer = true; script.onerror = () => { console.error("Failed to load Google Maps script."); showError("Failed to load location services."); }; document.head.appendChild(script); }
-         window.initMapServices = function() { console.log("Google Maps API loaded."); initAutocomplete(); };
-         function initAutocomplete() { console.log("Initializing Autocomplete"); if (typeof google === 'undefined' || !google.maps?.places?.Autocomplete) { console.error("Autocomplete library not ready."); showError("Location search failed."); return; } try { autocomplete = new google.maps.places.Autocomplete(locationInput, { types: ['geocode', 'establishment'], fields: ['geometry', 'name', 'formatted_address', 'place_id'], componentRestrictions: { country: [] } }); autocomplete.addListener('place_changed', () => { const place = autocomplete.getPlace(); hideError(); if (!place.geometry?.location) { userCoordinates = null; return; } userCoordinates = { lat: place.geometry.location.lat(), lng: place.geometry.location.lng() }; console.log("Place selected:", place.name); locationInput.value = place.formatted_address || place.name; }); console.log("Autocomplete initialized."); } catch (error) { console.error("Error initializing Autocomplete:", error); showError("Failed to init location search."); } }
-         function getUserLocation() { if (!navigator.geolocation) { showError("Geolocation not supported."); return; } const btn = useLocationButton; btn.textContent = "Finding..."; btn.disabled = true; hideError(); navigator.geolocation.getCurrentPosition( (pos) => { userCoordinates = { lat: pos.coords.latitude, lng: pos.coords.longitude }; console.log("Geolocation:", userCoordinates); locationInput.value = `Current Location (${userCoordinates.lat.toFixed(4)}, ${userCoordinates.lng.toFixed(4)})`; btn.textContent = "📍 My Location"; btn.disabled = false; }, (err) => { console.error("Geolocation error:", err); let msg = "Could not get location."; switch(err.code){case 1:msg="Permission denied.";break; case 2:msg="Position unavailable.";break; case 3:msg="Timeout.";break;} showError(msg); userCoordinates = null; locationInput.value = ''; btn.textContent = "📍 My Location"; btn.disabled = false; }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }); }
-         function fetchRestaurants() { showView(views.loading); hideError(); const locationText = locationInput.value, radius = parseInt(radiusSelect.value), priceLevel = priceLevelSelect.value, cuisine = cuisineSelect.value; if (typeof google === 'undefined' || !google.maps?.places) { showError("Location services not ready."); showView(views.search); return; } if (userCoordinates) { performNearbySearch(userCoordinates, radius, cuisine, priceLevel); } else if (locationText && !locationText.startsWith("Current Location")) { const geocoder = new google.maps.Geocoder(); geocoder.geocode({ address: locationText }, (results, status) => { if (status === 'OK' && results?.[0]?.geometry?.location) { userCoordinates = { lat: results[0].geometry.location.lat(), lng: results[0].geometry.location.lng() }; performNearbySearch(userCoordinates, radius, cuisine, priceLevel); } else { showError(`Could not find "${locationText}".`); showView(views.search); } }); } else { showError("Please provide a location."); showView(views.search); } }
-         function performNearbySearch(coords, radius, cuisine, priceLevel) { const placesService = new google.maps.places.PlacesService(document.createElement('div')); let request = { location: new google.maps.LatLng(coords.lat, coords.lng), radius, type: 'restaurant' }; if (cuisine) request.keyword = cuisine; if (priceLevel) { request.minPriceLevel = parseInt(priceLevel); request.maxPriceLevel = parseInt(priceLevel); } console.log("Places Request:", request); placesService.nearbySearch(request, (results, status) => { console.log("Places Status:", status); if (status === google.maps.places.PlacesServiceStatus.OK && results?.length > 0) { const operational = results.filter(p => p.business_status === 'OPERATIONAL').slice(0, 20); if (operational.length === 0) { showError(`No operational restaurants found.`); showView(views.search); return; } console.log("Found", operational.length, "operational restaurants."); processRestaurantResults(operational, cuisine); } else if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) { showError("No restaurants found."); showView(views.search); } else { showError(`Places Error: ${status}`); showView(views.search); } }); }
-         function getPlaceDetails(placeIds) { const placesService = new google.maps.places.PlacesService(document.createElement('div')); const promises = placeIds.map(id => new Promise(res => placesService.getDetails({ placeId: id, fields: ['photos', 'name'] }, (d, s) => res({ placeId: id, photos: (s === google.maps.places.PlacesServiceStatus.OK && d?.photos) ? d.photos : [] })))); return Promise.all(promises); }
-         async function processRestaurantResults(results, searchCuisine) { try { const placeIds = results.map(r => r.place_id); const details = await getPlaceDetails(placeIds); const detailsMap = details.reduce((map, d) => { map[d.placeId] = d.photos; return map; }, {}); restaurants = results.map(place => { const placePhotos = detailsMap[place.place_id] || place.photos || []; const photoUrls = placePhotos.slice(0, 5).map(p => p.getUrl ? p.getUrl({ maxWidth: 600 }) : null).filter(url => url); if (photoUrls.length === 0) photoUrls.push("https://placehold.co/600x400/FF5864/white?text=No+Image"); return { id: place.place_id, name: place.name || "Unnamed", address: place.vicinity || "Address unavailable", cuisine: searchCuisine || getCuisineFromTypes(place.types || []), rating: place.rating ? `${place.rating}★ (${place.user_ratings_total || 0})` : "Not rated", priceLevel: place.price_level ?? 0, photoUrls, currentPhotoIndex: 0 }; }); if (restaurants.length === 0) { showError('No restaurants found.'); showView(views.search); return; } sessionId = generateSessionId(); saveSessionToFirebase(); currentIndex = 0; likedRestaurants = {}; updateRestaurantDisplay(); showView(views.swipe); } catch (error) { console.error("Error processing results:", error); showError("Error loading details."); showView(views.search); } }
-         function getCuisineFromTypes(types) { const typeMap={'cafe':'Cafe','bar':'Bar','bakery':'Bakery'}; const knownCuisines=["Italian","Chinese","Japanese","Mexican","Indian","Thai","American","French","Vietnamese","Korean","Mediterranean","Pizza","Sushi","Seafood","Steakhouse"]; for(const type of types){ const fmt=type.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase()); if(knownCuisines.includes(fmt))return fmt; if(typeMap[type])return typeMap[type]; } return types.includes('restaurant')?'Restaurant':'Food'; }
-         function createGoogleMapsLink(restaurant) { if (!restaurant?.name || !restaurant.address) return null; const query = restaurant.id ? `?q=place_id:${restaurant.id}` : `?q=${encodeURIComponent(restaurant.name + ", " + restaurant.address)}`; const url = `https://www.google.com/maps/search/${query}`; const link = document.createElement('a'); link.href = url; link.textContent = "View on Google Maps ↗"; link.className = "google-maps-link"; link.target = "_blank"; link.rel = "noopener noreferrer"; return link; }
-         function updateRestaurantDisplay() { if (currentIndex >= restaurants.length) { showResultsView(); return; } const restaurant = restaurants[currentIndex]; swipeUI.currentIndex.textContent = currentIndex + 1; swipeUI.totalRestaurants.textContent = restaurants.length; restaurant.currentPhotoIndex = restaurant.currentPhotoIndex || 0; swipeUI.image.src = restaurant.photoUrls[restaurant.currentPhotoIndex]; swipeUI.image.alt = restaurant.name; swipeUI.photoIndicators.innerHTML = ''; restaurant.photoUrls.forEach((_, index) => { const dot = document.createElement('span'); dot.className = 'photo-dot' + (index === restaurant.currentPhotoIndex ? ' active' : ''); swipeUI.photoIndicators.appendChild(dot); }); const showNav = restaurant.photoUrls.length > 1; swipeUI.prevPhotoBtn.style.display = showNav ? 'flex' : 'none'; swipeUI.nextPhotoBtn.style.display = showNav ? 'flex' : 'none'; swipeUI.photoIndicators.style.display = showNav ? 'flex' : 'none'; swipeUI.name.textContent = restaurant.name; swipeUI.cuisine.textContent = `Cuisine: ${restaurant.cuisine}`; swipeUI.rating.textContent = `Rating: ${restaurant.rating}`; swipeUI.price.textContent = `Price: ${restaurant.priceLevel > 0 ? '$'.repeat(restaurant.priceLevel) : 'N/A'}`; swipeUI.address.textContent = `Address: ${restaurant.address}`; swipeUI.mapsLinkPlaceholder.innerHTML = ''; const mapsLink = createGoogleMapsLink(restaurant); if (mapsLink) swipeUI.mapsLinkPlaceholder.appendChild(mapsLink); views.swipe.querySelector('.card-content').scrollTop = 0; }
-         function changePhoto(direction) { if (currentIndex >= restaurants.length) return; const r=restaurants[currentIndex]; const num=r.photoUrls.length; if(num<=1)return; r.currentPhotoIndex=(r.currentPhotoIndex+direction+num)%num; updateRestaurantDisplay(); }
-         function handleSwipe(liked) { if (currentIndex >= restaurants.length) return; const id=restaurants[currentIndex].id; if(liked)likedRestaurants[id]=true; saveLikesToFirebase(); currentIndex++; if(currentIndex<restaurants.length)updateRestaurantDisplay(); else showResultsView(); }
-         function showResultsView() { const count=Object.keys(likedRestaurants).length; resultsUI.likedCount.textContent=count; resultsUI.sessionId.textContent=sessionId; resultsUI.friendCodeInput.value=''; showView(views.results); }
-         function findMatches() { const friendCode = resultsUI.friendCodeInput.value.trim(); if (!friendCode || friendCode === sessionId) { showError(friendCode ? 'Enter friend\'s code.' : 'Enter code.'); return; } showView(views.loading); hideError(); if (typeof firebase === 'undefined' || !firebase.apps.length) { console.warn("Simulating match."); setTimeout(() => displayMatches([]), 1500); return; } firebase.database().ref('sessions/' + friendCode).once('value').then(snap => { const friendData = snap.val(); if (!friendData?.likes) { showError('Friend code invalid/pending.'); showView(views.results); return; } const friendLikes=friendData.likes||{}; const friendLikedIds=Object.keys(friendLikes); const myLikedIds=Object.keys(likedRestaurants); const matchedIds=myLikedIds.filter(id=>friendLikedIds.includes(id)); const friendRestaurantsData=friendData.restaurants||[]; const friendMap=friendRestaurantsData.reduce((map,r)=>{map[r.id]=r;return map;},{}); const myMap=restaurants.reduce((map,r)=>{map[r.id]=r;return map;},{}); const matchedRestaurants=matchedIds.map(id=>friendMap[id]||myMap[id]).filter(r=>r); displayMatches(matchedRestaurants); }).catch(err => { console.error("Match error:", err); showError('Could not get friend data.'); showView(views.results); }); }
-         function displayMatches(matchedRestaurants) { matchesUI.list.innerHTML = ''; if (matchedRestaurants.length > 0) { matchedRestaurants.forEach(r => { const item = document.createElement('div'); item.className = 'restaurant-item'; const price = r.priceLevel > 0 ? '$'.repeat(r.priceLevel) : 'N/A'; item.innerHTML = `<h3>${r.name}</h3><p>Cuisine: ${r.cuisine}</p><p>Rating: ${r.rating}</p><p class="price-level">Price: ${price}</p><p>Address: ${r.address}</p>`; const mapsLink = createGoogleMapsLink(r); if (mapsLink) item.appendChild(mapsLink); matchesUI.list.appendChild(item); }); } else { matchesUI.list.innerHTML = '<p style="text-align:center; padding:20px;">No common matches found!</p>'; } showView(views.matches); }
+        // --- JS Code ---
+        const views = { search: document.getElementById('search-view'), loading: document.getElementById('loading-view'), swipe: document.getElementById('swipe-view'), results: document.getElementById('results-view'), matches: document.getElementById('matches-view') };
+        const searchForm = document.getElementById('search-form');
+        const locationInput = document.getElementById('location');
+        const useLocationButton = document.getElementById('use-location-button');
+        const radiusSelect = document.getElementById('radius');
+        const priceLevelSelect = document.getElementById('price-level');
+        // *** MODIFIED HERE: Changed variable to reference the text input ***
+        const cuisineKeywordInput = document.getElementById('cuisine-keyword');
+        const searchButton = document.getElementById('search-button');
+        const swipeUI = { currentIndex: document.getElementById('current-index'), totalRestaurants: document.getElementById('total-restaurants'), image: document.getElementById('restaurant-image'), name: document.getElementById('restaurant-name'), cuisine: document.getElementById('restaurant-cuisine'), rating: document.getElementById('restaurant-rating'), price: document.getElementById('restaurant-price'), address: document.getElementById('restaurant-address'), prevPhotoBtn: document.getElementById('prev-photo'), nextPhotoBtn: document.getElementById('next-photo'), photoIndicators: document.getElementById('photo-indicators'), dislikeButton: document.getElementById('dislike-button'), likeButton: document.getElementById('like-button'), mapsLinkPlaceholder: document.getElementById('google-maps-link-placeholder') };
+        const resultsUI = { likedCount: document.getElementById('liked-count'), sessionId: document.getElementById('session-id'), friendCodeInput: document.getElementById('friend-code'), findMatchesButton: document.getElementById('find-matches-button'), startOverButton: document.getElementById('start-over-button'), copyCodeButton: document.getElementById('copy-code-button') };
+        const matchesUI = { list: document.getElementById('matches-list'), startOverButton: document.getElementById('matches-start-over-button') };
+        const errorContainer = document.getElementById('error-container');
+
+        let restaurants = [];
+        let currentIndex = 0;
+        let likedRestaurants = {};
+        let sessionId = '';
+        let userCoordinates = null;
+        let autocomplete = null;
+        let currentVisibleView = views.search;
+
+        // --- Helper Functions (showView, showError, hideError) ---
+        function showView(viewToShow) { Object.values(views).forEach(view => { if (view !== viewToShow) view.classList.add('transition-hidden'); }); viewToShow.classList.remove('transition-hidden'); currentVisibleView = viewToShow; window.scrollTo(0, 0); }
+        function showError(message) { errorContainer.textContent = message; errorContainer.classList.remove('hidden'); }
+        function hideError() { errorContainer.classList.add('hidden'); errorContainer.textContent = ''; }
+
+        // --- Google Maps & Places API Functions ---
+        function loadGoogleMapsScript() {
+            if (document.getElementById('google-maps-script')) return;
+            const script = document.createElement('script');
+            script.id = 'google-maps-script';
+            // IMPORTANT: Replace with your actual API key
+            const apiKey = "YOUR_GOOGLE_MAPS_API_KEY"; // <--- REPLACE THIS
+            if (!apiKey || apiKey === "YOUR_GOOGLE_MAPS_API_KEY" || apiKey.length < 20) {
+                console.error("Google Maps API Key missing/invalid! Replace 'YOUR_GOOGLE_MAPS_API_KEY' in the script.");
+                showError("Map services are not configured correctly. Please contact the administrator.");
+                // Disable location-dependent features
+                locationInput.disabled = true;
+                useLocationButton.disabled = true;
+                searchButton.disabled = true;
+                return;
+            }
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry&callback=initMapServices`;
+            script.async = true;
+            script.defer = true;
+            script.onerror = () => {
+                console.error("Failed to load Google Maps script.");
+                showError("Failed to load location services. Check your internet connection and API key.");
+            };
+            document.head.appendChild(script);
+        }
+
+        window.initMapServices = function() {
+             console.log("Google Maps API loaded.");
+             initAutocomplete(); // Initialize autocomplete after the script is loaded
+        };
+
+        function initAutocomplete() {
+            console.log("Initializing Autocomplete");
+            if (typeof google === 'undefined' || !google.maps?.places?.Autocomplete) {
+                console.error("Autocomplete library not ready.");
+                showError("Location search feature failed to load.");
+                return;
+            }
+            try {
+                autocomplete = new google.maps.places.Autocomplete(locationInput, {
+                    types: ['geocode', 'establishment'], // Search for addresses and places
+                    fields: ['geometry', 'name', 'formatted_address', 'place_id'], // Data to return
+                    componentRestrictions: { country: [] } // Allow global search initially
+                });
+
+                autocomplete.addListener('place_changed', () => {
+                    const place = autocomplete.getPlace();
+                    hideError(); // Hide previous errors
+                    if (!place.geometry?.location) {
+                        console.warn("Autocomplete: No geometry for place:", place.name);
+                        userCoordinates = null; // Reset coords if place is invalid
+                        // Optionally keep the user's typed text if no place is selected
+                        return;
+                    }
+                    userCoordinates = {
+                        lat: place.geometry.location.lat(),
+                        lng: place.geometry.location.lng()
+                    };
+                    console.log("Place selected:", place.name, userCoordinates);
+                    locationInput.value = place.formatted_address || place.name; // Update input field
+                });
+                console.log("Autocomplete initialized.");
+            } catch (error) {
+                console.error("Error initializing Autocomplete:", error);
+                showError("Failed to initialize location search functionality.");
+            }
+        }
+
+        function getUserLocation() {
+             if (!navigator.geolocation) { showError("Geolocation is not supported by your browser."); return; }
+             const btn = useLocationButton; btn.textContent = "Finding..."; btn.disabled = true; hideError();
+             navigator.geolocation.getCurrentPosition( (pos) => {
+                 userCoordinates = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                 console.log("Geolocation acquired:", userCoordinates);
+                 locationInput.value = `Current Location (${userCoordinates.lat.toFixed(4)}, ${userCoordinates.lng.toFixed(4)})`;
+                 btn.textContent = "📍 My Location"; btn.disabled = false;
+             }, (err) => {
+                 console.error("Geolocation error:", err); let msg = "Could not get your location."; switch(err.code){case 1:msg="Location permission denied.";break; case 2:msg="Location position unavailable.";break; case 3:msg="Location request timed out.";break;} showError(msg); userCoordinates = null; locationInput.value = ''; btn.textContent = "📍 My Location"; btn.disabled = false;
+             }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+         }
+
+        function fetchRestaurants() {
+            showView(views.loading);
+            hideError();
+            const locationText = locationInput.value.trim();
+            const radius = parseInt(radiusSelect.value);
+            const priceLevel = priceLevelSelect.value;
+            // *** MODIFIED HERE: Get value from the text input ***
+            const keyword = cuisineKeywordInput.value.trim(); // Use this as the keyword
+
+            if (typeof google === 'undefined' || !google.maps?.places) {
+                showError("Location services are not ready. Please wait or refresh.");
+                showView(views.search);
+                return;
+            }
+
+            // If user coordinates are set (from "My Location" or Autocomplete), use them
+            if (userCoordinates) {
+                console.log("Searching using coordinates:", userCoordinates);
+                performNearbySearch(userCoordinates, radius, keyword, priceLevel); // Pass keyword
+            }
+            // Else if location text is provided (and not the placeholder for current location)
+            else if (locationText && !locationText.startsWith("Current Location")) {
+                console.log("Searching using text address:", locationText);
+                const geocoder = new google.maps.Geocoder();
+                geocoder.geocode({ address: locationText }, (results, status) => {
+                    if (status === 'OK' && results?.[0]?.geometry?.location) {
+                        userCoordinates = {
+                            lat: results[0].geometry.location.lat(),
+                            lng: results[0].geometry.location.lng()
+                        };
+                        console.log("Geocoded address to:", userCoordinates);
+                        performNearbySearch(userCoordinates, radius, keyword, priceLevel); // Pass keyword
+                    } else {
+                        console.error("Geocoding failed:", status);
+                        showError(`Could not find location: "${locationText}". Please try a different address or use "My Location".`);
+                        showView(views.search);
+                    }
+                });
+            }
+            // Else, no valid location provided
+            else {
+                showError("Please provide a location (type an address or use 'My Location').");
+                showView(views.search);
+            }
+        }
+
+        function performNearbySearch(coords, radius, keyword, priceLevel) {
+            const placesService = new google.maps.places.PlacesService(document.createElement('div')); // Need a map instance or dummy element
+            let request = {
+                location: new google.maps.LatLng(coords.lat, coords.lng),
+                radius: radius,
+                type: 'restaurant' // Base type
+                 //*** MODIFIED HERE: Always use the keyword if provided ***
+                 // The 'keyword' param searches name, type, address, reviews - good for specific dishes like "Laksa"
+            };
+            if (keyword) {
+                 request.keyword = keyword;
+            }
+            if (priceLevel) {
+                const price = parseInt(priceLevel);
+                request.minPriceLevel = price; // Google uses 0-4 scale
+                request.maxPriceLevel = price;
+            }
+
+            console.log("Executing Google Places NearbySearch with request:", request);
+
+            placesService.nearbySearch(request, (results, status, pagination) => {
+                console.log("Places API Response Status:", status);
+                if (status === google.maps.places.PlacesServiceStatus.OK && results?.length > 0) {
+                    // Filter for operational places and limit results (e.g., top 20)
+                    const operationalRestaurants = results.filter(p => p.business_status === 'OPERATIONAL').slice(0, 20);
+
+                    if (operationalRestaurants.length === 0) {
+                        showError(`No currently operational restaurants found matching your criteria${keyword ? ` for "${keyword}"` : ''}. Try different options.`);
+                        showView(views.search);
+                        return;
+                    }
+                    console.log("Found", operationalRestaurants.length, "operational restaurants.");
+                    processRestaurantResults(operationalRestaurants, keyword); // Pass the original search keyword
+                } else if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
+                    showError(`No restaurants found matching your criteria${keyword ? ` for "${keyword}"` : ''}. Try widening the distance or changing criteria.`);
+                    showView(views.search);
+                } else {
+                    console.error("Places API Error:", status);
+                    showError(`Could not retrieve restaurant data. (Error: ${status})`);
+                    showView(views.search);
+                }
+            });
+        }
+
+        // Fetches detailed info like photos for multiple places efficiently
+        function getPlaceDetails(placeIds) {
+            const placesService = new google.maps.places.PlacesService(document.createElement('div'));
+            const detailFields = ['photos', 'name', 'place_id']; // Minimal fields needed
+
+            const promises = placeIds.map(id => new Promise((resolve) => {
+                placesService.getDetails({ placeId: id, fields: detailFields }, (details, status) => {
+                    // Resolve even if error, just with empty photos
+                    resolve({
+                        placeId: id,
+                        photos: (status === google.maps.places.PlacesServiceStatus.OK && details?.photos) ? details.photos : []
+                    });
+                });
+            }));
+
+            return Promise.all(promises);
+        }
+
+        async function processRestaurantResults(results, searchKeyword) {
+             try {
+                 const placeIds = results.map(r => r.place_id);
+                 console.log("Fetching details for Place IDs:", placeIds);
+                 const detailsList = await getPlaceDetails(placeIds);
+
+                 // Create a map for easy lookup: { placeId: [photo1, photo2,...] }
+                 const photoDetailsMap = detailsList.reduce((map, detail) => {
+                     map[detail.placeId] = detail.photos;
+                     return map;
+                 }, {});
+
+                 restaurants = results.map(place => {
+                     const placePhotos = photoDetailsMap[place.place_id] || place.photos || []; // Use detailed photos if available, fallback to nearbySearch photos
+                     const photoUrls = placePhotos.slice(0, 5) // Limit to 5 photos
+                         .map(p => p.getUrl ? p.getUrl({ maxWidth: 600 }) : null) // Get URL with max width
+                         .filter(url => url); // Remove nulls if getUrl failed
+
+                     // Add a placeholder if no photos found
+                     if (photoUrls.length === 0) {
+                         photoUrls.push("https://placehold.co/600x400/FF5864/white?text=No+Image");
+                     }
+
+                     // *** MODIFIED HERE: Prioritize searchKeyword for cuisine display ***
+                     let displayCuisine = "Food"; // Default
+                     if (searchKeyword) {
+                         // Capitalize the first letter of each word in the search keyword
+                         displayCuisine = searchKeyword.trim().toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+                     } else {
+                         displayCuisine = getCuisineFromTypes(place.types || []); // Fallback if no keyword was used
+                     }
+
+                     return {
+                         id: place.place_id,
+                         name: place.name || "Unnamed Restaurant",
+                         address: place.vicinity || "Address unavailable",
+                         cuisine: displayCuisine, // Use the determined display cuisine
+                         rating: place.rating ? `${place.rating} ★ (${place.user_ratings_total || 0} reviews)` : "Not rated",
+                         priceLevel: place.price_level ?? 0, // 0 = N/A, 1-4 = $-$$$$
+                         photoUrls: photoUrls,
+                         currentPhotoIndex: 0 // Initialize for photo navigation
+                     };
+                 });
+
+                 if (restaurants.length === 0) {
+                     showError('No valid restaurant data could be processed.');
+                     showView(views.search);
+                     return;
+                 }
+
+                 console.log("Processed restaurants:", restaurants);
+
+                 sessionId = generateSessionId();
+                 saveSessionToFirebase(); // Save initial data (without likes yet)
+                 currentIndex = 0;
+                 likedRestaurants = {};
+                 updateRestaurantDisplay();
+                 showView(views.swipe);
+
+             } catch (error) {
+                 console.error("Error processing restaurant results:", error);
+                 showError("An error occurred while loading restaurant details.");
+                 showView(views.search);
+             }
+         }
+
+
+         function getCuisineFromTypes(types) {
+            // Simple mapping for common types (can be expanded)
+            const typeMap = { 'cafe': 'Cafe', 'bar': 'Bar', 'bakery': 'Bakery' };
+            const knownCuisines = ["Italian", "Chinese", "Japanese", "Mexican", "Indian", "Thai", "American", "French", "Vietnamese", "Korean", "Mediterranean", "Pizza", "Sushi", "Seafood", "Steakhouse"];
+
+            for (const type of types) {
+                // Format type: replace underscores, capitalize words
+                const formattedType = type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                if (knownCuisines.includes(formattedType)) {
+                    return formattedType; // Return known cuisine type
+                }
+                if (typeMap[type]) {
+                    return typeMap[type]; // Return mapped type
+                }
+            }
+            // Fallback if no specific cuisine identified
+            return types.includes('restaurant') ? 'Restaurant' : 'Food';
+        }
+
+
+        function createGoogleMapsLink(restaurant) {
+            if (!restaurant) return null;
+            let url;
+            // Prefer place_id for accuracy
+            if (restaurant.id) {
+                url = `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${restaurant.id}`;
+            } else if (restaurant.name && restaurant.address) {
+                // Fallback to name + address query
+                const query = encodeURIComponent(`${restaurant.name}, ${restaurant.address}`);
+                url = `https://www.google.com/maps/search/?api=1&query=${query}`;
+            } else {
+                return null; // Cannot generate link
+            }
+
+            const link = document.createElement('a');
+            link.href = url;
+            link.textContent = "View on Google Maps ↗";
+            link.className = "google-maps-link";
+            link.target = "_blank"; // Open in new tab
+            link.rel = "noopener noreferrer"; // Security best practice
+            return link;
+        }
+
+
+        // --- Swipe UI Functions ---
+        function updateRestaurantDisplay() {
+            if (currentIndex >= restaurants.length) {
+                showResultsView(); // All restaurants swiped
+                return;
+            }
+
+            const restaurant = restaurants[currentIndex];
+            swipeUI.currentIndex.textContent = currentIndex + 1;
+            swipeUI.totalRestaurants.textContent = restaurants.length;
+
+            // Photo display and navigation
+            restaurant.currentPhotoIndex = restaurant.currentPhotoIndex || 0; // Ensure index exists
+            swipeUI.image.src = restaurant.photoUrls[restaurant.currentPhotoIndex];
+            swipeUI.image.alt = restaurant.name;
+
+            // Update photo dots
+            swipeUI.photoIndicators.innerHTML = ''; // Clear previous dots
+            restaurant.photoUrls.forEach((_, index) => {
+                const dot = document.createElement('span');
+                dot.className = 'photo-dot' + (index === restaurant.currentPhotoIndex ? ' active' : '');
+                swipeUI.photoIndicators.appendChild(dot);
+            });
+
+            // Show/hide photo navigation buttons and dots
+            const showNav = restaurant.photoUrls.length > 1;
+            swipeUI.prevPhotoBtn.style.display = showNav ? 'flex' : 'none';
+            swipeUI.nextPhotoBtn.style.display = showNav ? 'flex' : 'none';
+            swipeUI.photoIndicators.style.display = showNav ? 'flex' : 'none';
+
+
+            // Update text content
+            swipeUI.name.textContent = restaurant.name;
+            swipeUI.cuisine.textContent = `Cuisine: ${restaurant.cuisine}`; // Display the cuisine/keyword
+            swipeUI.rating.textContent = `Rating: ${restaurant.rating}`;
+            swipeUI.price.textContent = `Price: ${restaurant.priceLevel > 0 ? '$'.repeat(restaurant.priceLevel) : 'N/A'}`;
+            swipeUI.address.textContent = `Address: ${restaurant.address}`;
+
+            // Add Google Maps link
+            swipeUI.mapsLinkPlaceholder.innerHTML = ''; // Clear previous link
+            const mapsLink = createGoogleMapsLink(restaurant);
+            if (mapsLink) {
+                swipeUI.mapsLinkPlaceholder.appendChild(mapsLink);
+            }
+
+             // Reset scroll position of card content
+             const cardContent = views.swipe.querySelector('.card-content');
+             if (cardContent) cardContent.scrollTop = 0;
+        }
+
+        function changePhoto(direction) {
+            if (currentIndex >= restaurants.length) return; // No restaurant loaded
+            const restaurant = restaurants[currentIndex];
+            const numPhotos = restaurant.photoUrls.length;
+            if (numPhotos <= 1) return; // No other photos to navigate to
+
+            // Calculate new index, wrapping around
+            restaurant.currentPhotoIndex = (restaurant.currentPhotoIndex + direction + numPhotos) % numPhotos;
+            updateRestaurantDisplay(); // Re-render card with new photo
+        }
+
+
+        function handleSwipe(liked) {
+            if (currentIndex >= restaurants.length) return; // Should not happen if UI is correct
+
+            const restaurantId = restaurants[currentIndex].id;
+            if (liked) {
+                likedRestaurants[restaurantId] = true; // Mark as liked
+                console.log("Liked:", restaurants[currentIndex].name);
+            } else {
+                console.log("Disliked:", restaurants[currentIndex].name);
+                // We only need to store likes for matching
+            }
+
+            saveLikesToFirebase(); // Update likes in Firebase
+
+            currentIndex++; // Move to the next restaurant
+
+            if (currentIndex < restaurants.length) {
+                updateRestaurantDisplay(); // Show next card
+            } else {
+                showResultsView(); // End of swipe session
+            }
+        }
+
+
+        // --- Results & Matching Functions ---
+        function showResultsView() {
+            const likedCount = Object.keys(likedRestaurants).length;
+            resultsUI.likedCount.textContent = likedCount;
+            resultsUI.sessionId.textContent = sessionId;
+            resultsUI.friendCodeInput.value = ''; // Clear friend code input
+            showView(views.results);
+        }
+
+        function findMatches() {
+            const friendCode = resultsUI.friendCodeInput.value.trim().toUpperCase(); // Standardize code format
+            if (!friendCode) {
+                showError('Please enter your friend\'s code.');
+                return;
+            }
+            if (friendCode === sessionId) {
+                showError('You cannot match with your own code!');
+                return;
+            }
+
+            showView(views.loading); // Show loading while fetching friend's data
+            hideError();
+
+             // Check if Firebase is available
+            if (typeof firebase === 'undefined' || !firebase.apps.length) {
+                console.warn("Firebase not initialized. Cannot fetch friend data.");
+                showError("Matching service is unavailable. Could not connect.");
+                 // Simulate no matches after a delay
+                setTimeout(() => {
+                    displayMatches([]); // Display empty matches
+                    showView(views.matches); // Show the matches view anyway
+                }, 1500);
+                return;
+            }
+
+            // Fetch friend's session data from Firebase
+            firebase.database().ref('sessions/' + friendCode).once('value')
+                .then(snapshot => {
+                    const friendData = snapshot.val();
+
+                    if (!friendData) {
+                        showError(`Friend code "${friendCode}" not found or expired.`);
+                        showView(views.results); // Go back to results view
+                        return;
+                    }
+
+                    const friendLikes = friendData.likes || {}; // Friend's liked restaurant IDs
+                    const friendLikedIds = Object.keys(friendLikes);
+                    const myLikedIds = Object.keys(likedRestaurants); // Your liked restaurant IDs
+
+                    // Find common IDs
+                    const matchedIds = myLikedIds.filter(id => friendLikedIds.includes(id));
+
+                    // Get full restaurant details for matched IDs
+                    // Combine data from both sessions in case one is missing details (unlikely but safe)
+                    const friendRestaurantsData = friendData.restaurants || [];
+                    const friendMap = friendRestaurantsData.reduce((map, r) => { map[r.id] = r; return map; }, {});
+                    const myMap = restaurants.reduce((map, r) => { map[r.id] = r; return map; }, {});
+
+                    const matchedRestaurants = matchedIds
+                        .map(id => friendMap[id] || myMap[id]) // Get details from friend's data first, fallback to yours
+                        .filter(r => r); // Filter out any potential nulls if ID somehow doesn't match any restaurant
+
+                    console.log("Matches found:", matchedRestaurants);
+                    displayMatches(matchedRestaurants);
+
+                })
+                .catch(error => {
+                    console.error("Error fetching friend's data:", error);
+                    showError('Could not retrieve friend\'s data. Please check the code and try again.');
+                    showView(views.results); // Go back to results view
+                });
+        }
+
+        function displayMatches(matchedRestaurants) {
+            matchesUI.list.innerHTML = ''; // Clear previous matches
+
+            if (matchedRestaurants.length > 0) {
+                matchedRestaurants.forEach(r => {
+                    const item = document.createElement('div');
+                    item.className = 'restaurant-item'; // Reuse existing style
+                    const priceDisplay = r.priceLevel > 0 ? '$'.repeat(r.priceLevel) : 'N/A';
+                    item.innerHTML = `
+                        <h3>${r.name}</h3>
+                        <p>Cuisine: ${r.cuisine}</p>
+                        <p>Rating: ${r.rating}</p>
+                        <p class="price-level">Price: ${priceDisplay}</p>
+                        <p>Address: ${r.address}</p>
+                    `;
+                    const mapsLink = createGoogleMapsLink(r);
+                    if (mapsLink) {
+                        item.appendChild(mapsLink);
+                    }
+                    matchesUI.list.appendChild(item);
+                });
+            } else {
+                matchesUI.list.innerHTML = '<p style="text-align:center; padding:20px;">No common matches found!</p>';
+            }
+
+            showView(views.matches);
+        }
+
+
+        // --- Firebase Integration ---
          function generateSessionId() { return Math.random().toString(36).substring(2, 10).toUpperCase(); }
-         function saveSessionToFirebase() { if(typeof firebase==='undefined'||!firebase.apps.length||!sessionId)return; const data=restaurants.map(r=>({id:r.id,name:r.name,address:r.address,cuisine:r.cuisine,rating:r.rating,priceLevel:r.priceLevel})); firebase.database().ref('sessions/'+sessionId).set({restaurants:data,timestamp:firebase.database.ServerValue.TIMESTAMP,likes:{}}).catch(e=>console.error("Session save error:",e)); }
-         function saveLikesToFirebase() { if(typeof firebase==='undefined'||!firebase.apps.length||!sessionId)return; firebase.database().ref('sessions/'+sessionId+'/likes').set(likedRestaurants).catch(e=>console.error("Likes update error:",e)); }
-         function initializeFirebase() { if(typeof firebase==='undefined'||typeof firebase.initializeApp==='undefined'){console.warn("Firebase SDK not ready.");return;} try{ const cfg={apiKey:"AIzaSyDauSN6vXVeflYHYdx54hIsXWeTxp-CarM",authDomain:"restaurant-finder-36e61.firebaseapp.com",databaseURL:"https://restaurant-finder-36e61-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"restaurant-finder-36e61",storageBucket:"restaurant-finder-36e61.appspot.com",messagingSenderId:"266887715200",appId:"1:266887715200:web:6c68d924d7596cdfb44965",measurementId:"G-TD5GNXZZMN"}; if (!firebase.apps.length) {firebase.initializeApp(cfg);console.log("Firebase initialized.");}}catch(e){console.error("Firebase init error:",e);showError("Sharing unavailable.");} }
-         function resetApp() { locationInput.value=''; radiusSelect.value='2000'; priceLevelSelect.value=''; cuisineSelect.value=''; resultsUI.friendCodeInput.value=''; restaurants=[]; currentIndex=0; likedRestaurants={}; sessionId=''; userCoordinates=null; hideError(); showView(views.search); }
-         function copySessionId() { const code=resultsUI.sessionId.textContent; if(!code||!navigator.clipboard){showError("Copy failed.");return;} navigator.clipboard.writeText(code).then(()=>{const t=resultsUI.copyCodeButton.textContent;resultsUI.copyCodeButton.textContent='✅';setTimeout(()=>{resultsUI.copyCodeButton.textContent=t;},1500);}).catch(err=>{console.error('Copy failed:',err);showError("Copy failed.");}); }
-         window.swipeUI = swipeUI; window.resultsUI = resultsUI; window.matchesUI = matchesUI; searchForm.addEventListener('submit', (e) => { e.preventDefault(); fetchRestaurants(); }); useLocationButton.addEventListener('click', getUserLocation); swipeUI.prevPhotoBtn.addEventListener('click', () => changePhoto(-1)); swipeUI.nextPhotoBtn.addEventListener('click', () => changePhoto(1)); swipeUI.dislikeButton.addEventListener('click', () => handleSwipe(false)); swipeUI.likeButton.addEventListener('click', () => handleSwipe(true)); resultsUI.findMatchesButton.addEventListener('click', findMatches); resultsUI.startOverButton.addEventListener('click', resetApp); resultsUI.copyCodeButton.addEventListener('click', copySessionId); resultsUI.sessionId.addEventListener('click', () => { window.getSelection().selectAllChildren(resultsUI.sessionId); }); matchesUI.startOverButton.addEventListener('click', resetApp);
-         document.addEventListener('DOMContentLoaded', () => { console.log("DOM loaded."); showView(views.search); loadGoogleMapsScript(); initializeFirebase(); });
+
+        function saveSessionToFirebase() {
+            if (typeof firebase === 'undefined' || !firebase.apps.length || !sessionId) {
+                 console.warn("Firebase not ready or no session ID, skipping session save.");
+                 return; // Don't try to save if Firebase isn't working or no session
+            }
+            // Store only essential, non-photo data to keep Firebase usage low
+             const restaurantsToSave = restaurants.map(r => ({
+                 id: r.id,
+                 name: r.name,
+                 address: r.address,
+                 cuisine: r.cuisine,
+                 rating: r.rating,
+                 priceLevel: r.priceLevel
+                 // Don't save photoUrls or currentPhotoIndex
+             }));
+
+             const sessionData = {
+                 restaurants: restaurantsToSave,
+                 timestamp: firebase.database.ServerValue.TIMESTAMP, // Record when created
+                 likes: {} // Initialize empty likes object
+             };
+
+             firebase.database().ref('sessions/' + sessionId).set(sessionData)
+                 .then(() => console.log("Session saved to Firebase:", sessionId))
+                 .catch(error => console.error("Firebase session save error:", error));
+        }
+
+        function saveLikesToFirebase() {
+             if (typeof firebase === 'undefined' || !firebase.apps.length || !sessionId) {
+                console.warn("Firebase not ready or no session ID, skipping likes save.");
+                return; // Don't try to save if Firebase isn't working or no session
+             }
+
+             firebase.database().ref('sessions/' + sessionId + '/likes').set(likedRestaurants)
+                .then(() => console.log("Likes updated in Firebase for session:", sessionId))
+                .catch(error => console.error("Firebase likes update error:", error));
+        }
+
+        function initializeFirebase() {
+            if (typeof firebase === 'undefined' || typeof firebase.initializeApp === 'undefined') {
+                console.warn("Firebase SDK not loaded yet.");
+                // Optionally disable sharing features if SDK fails
+                return;
+            }
+            try {
+                // IMPORTANT: Replace with your actual Firebase config
+                 const firebaseConfig = {
+                   apiKey: "YOUR_FIREBASE_API_KEY", // <--- REPLACE
+                   authDomain: "YOUR_FIREBASE_AUTH_DOMAIN", // <--- REPLACE
+                   databaseURL: "YOUR_FIREBASE_DATABASE_URL", // <--- REPLACE
+                   projectId: "YOUR_FIREBASE_PROJECT_ID", // <--- REPLACE
+                   storageBucket: "YOUR_FIREBASE_STORAGE_BUCKET", // <--- REPLACE
+                   messagingSenderId: "YOUR_FIREBASE_MESSAGING_SENDER_ID", // <--- REPLACE
+                   appId: "YOUR_FIREBASE_APP_ID", // <--- REPLACE
+                   measurementId: "YOUR_FIREBASE_MEASUREMENT_ID" // optional
+                 };
+
+                 // Initialize Firebase only if it hasn't been initialized yet
+                 if (!firebase.apps.length) {
+                     firebase.initializeApp(firebaseConfig);
+                     console.log("Firebase initialized successfully.");
+                 } else {
+                    console.log("Firebase already initialized.");
+                 }
+
+            } catch (e) {
+                 console.error("Firebase initialization error:", e);
+                 showError("Sharing features are currently unavailable due to a configuration issue.");
+                 // Disable sharing-related buttons if needed
+                 resultsUI.findMatchesButton.disabled = true;
+                 resultsUI.copyCodeButton.disabled = true;
+            }
+        }
+
+
+        // --- Utility & Event Listeners ---
+        function resetApp() {
+            // Reset form fields
+            locationInput.value = '';
+            radiusSelect.value = '2000'; // Default radius
+            priceLevelSelect.value = ''; // Default price
+            // *** MODIFIED HERE: Reset the text input ***
+            cuisineKeywordInput.value = '';
+            resultsUI.friendCodeInput.value = '';
+
+            // Reset state variables
+            restaurants = [];
+            currentIndex = 0;
+            likedRestaurants = {};
+            sessionId = '';
+            userCoordinates = null; // Important to reset coordinates
+            hideError();
+            showView(views.search); // Go back to the start
+            console.log("App reset.");
+        }
+
+        function copySessionId() {
+            const code = resultsUI.sessionId.textContent;
+            if (!code || code === 'CODE' || !navigator.clipboard) {
+                showError("Cannot copy code. Try selecting manually.");
+                return;
+            }
+            navigator.clipboard.writeText(code).then(() => {
+                const originalText = resultsUI.copyCodeButton.textContent;
+                resultsUI.copyCodeButton.textContent = '✅'; // Indicate success
+                setTimeout(() => {
+                    resultsUI.copyCodeButton.textContent = originalText; // Revert back
+                }, 1500);
+            }).catch(err => {
+                console.error('Failed to copy session code:', err);
+                showError("Failed to copy code automatically. Please select and copy manually.");
+            });
+        }
+
+        // Add references to global scope for easy debugging (optional)
+        window.swipeUI = swipeUI;
+        window.resultsUI = resultsUI;
+        window.matchesUI = matchesUI;
+
+        // --- Event Listeners ---
+        searchForm.addEventListener('submit', (e) => {
+            e.preventDefault(); // Prevent default form submission
+            fetchRestaurants();
+        });
+
+        useLocationButton.addEventListener('click', getUserLocation);
+
+        swipeUI.prevPhotoBtn.addEventListener('click', () => changePhoto(-1));
+        swipeUI.nextPhotoBtn.addEventListener('click', () => changePhoto(1));
+        swipeUI.dislikeButton.addEventListener('click', () => handleSwipe(false));
+        swipeUI.likeButton.addEventListener('click', () => handleSwipe(true));
+
+        resultsUI.findMatchesButton.addEventListener('click', findMatches);
+        resultsUI.startOverButton.addEventListener('click', resetApp);
+        resultsUI.copyCodeButton.addEventListener('click', copySessionId);
+        // Allow clicking the code itself to select it for easy copying
+        resultsUI.sessionId.addEventListener('click', () => {
+             if (resultsUI.sessionId.textContent !== 'CODE') {
+                window.getSelection().selectAllChildren(resultsUI.sessionId);
+             }
+        });
+
+
+        matchesUI.startOverButton.addEventListener('click', resetApp);
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("DOM fully loaded and parsed.");
+            showView(views.search); // Start on the search view
+            loadGoogleMapsScript(); // Start loading Google Maps API
+            // Defer Firebase init slightly to ensure SDKs are loaded via script tags
+            setTimeout(initializeFirebase, 500);
+        });
+
     </script>
 
-    <!-- Firebase SDK -->
+    <!-- Firebase SDKs (use compat versions for Realtime Database access pattern used here) -->
+    <!-- Make sure these load AFTER your main script or use defer -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js" defer></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js" defer></script>
 
