@@ -31,7 +31,7 @@
             font-size: 16px;
             background-color: #fff;
             line-height: normal;
-            height: 44px; /* Maintain consistent height for inputs/selects */
+            height: 44px; /* Maintain consistent height */
         }
         input:focus, select:focus { border-color: #FF5864; outline: none; box-shadow: 0 0 0 2px rgba(255, 88, 100, 0.2); }
 
@@ -39,23 +39,17 @@
         /* --- Buttons --- */
         .button {
             background-color: #FF5864; color: white; border: none;
-            padding: 12px 20px; /* Consistent padding */
-            border-radius: 30px; cursor: pointer; font-size: 16px; font-weight: 600;
-            display: inline-block; /* Allows width: 100% to work */
-            text-align: center; vertical-align: middle; /* Helps with vertical alignment */
+            padding: 12px 20px; border-radius: 30px; cursor: pointer; font-size: 16px; font-weight: 600;
+            display: inline-block; text-align: center; vertical-align: middle;
             width: 100%;
             transition: background-color 0.2s ease, transform 0.1s ease;
-            line-height: 1.5; /* Adjust line-height for better vertical centering with padding */
+            line-height: 1.5;
         }
         .button:hover:not(:disabled) { background-color: #e1404d; transform: scale(1.02); }
         .button:active:not(:disabled) { transform: scale(0.98); }
         .button:disabled { background-color: #ccc; cursor: not-allowed; transform: none; }
 
-        /* --- Location Button Specific --- */
-        .location-button {
-            width: 100%;
-            margin-top: 10px;
-        }
+        .location-button { width: 100%; margin-top: 10px; }
 
         /* --- Card Layout --- */
         .card { background-color: white; border-radius: 10px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15); overflow: hidden; margin-bottom: 20px; height: 580px; position: relative; display: flex; flex-direction: column; }
@@ -87,9 +81,21 @@
         .error-message { color: #c0392b; text-align: center; padding: 15px; background-color: #fbecea; border: 1px solid #e74c3c; border-radius: 8px; margin: 20px 0; font-size: 15px; }
 
         /* --- Results, Matches & Liked List --- */
-        .restaurant-list { background-color: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); margin-top: 15px; /* Added margin-top */ }
-        .restaurant-item { padding: 15px 10px; border-bottom: 1px solid #eee; }
+        .restaurant-list { background-color: white; border-radius: 8px; /* padding: 15px; */ /* Padding removed to allow image flush */ box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); margin-top: 20px; /* Increased margin */ overflow: hidden; /* contain image border radius */ }
+        .restaurant-item { /* padding: 15px 10px; */ /* Padding removed here too */ border-bottom: 1px solid #eee; }
         .restaurant-item:last-child { border-bottom: none; }
+        /* *** ADDED: Style for the image in the list *** */
+        .liked-item-image {
+            width: 100%;      /* Full width of the item */
+            height: 150px;     /* Fixed height (adjust as desired) */
+            object-fit: cover; /* Cover the area, crop if needed */
+            display: block;    /* Prevent extra space below */
+            /* border-radius: 4px 4px 0 0; Optional: round top corners */
+        }
+         /* *** ADDED: Container for text content within item *** */
+        .restaurant-item-content {
+            padding: 15px; /* Add padding around text */
+        }
         .restaurant-item h3 { margin-bottom: 5px; color: #333; }
         .restaurant-item p { font-size: 14px; color: #666; margin-bottom: 3px; }
         .price-level { color: #27ae60; font-weight: 500; }
@@ -135,19 +141,17 @@
         <!-- Results View -->
         <div id="results-view" class="view transition-hidden">
             <div class="header"> <h1>Your Results</h1> <p>You liked <span id="liked-count">0</span> restaurant(s)</p> </div>
-            <div class="search-form"> <!-- Reusing search-form style for the white box -->
+            <div class="search-form">
                 <p style="text-align:center; margin-bottom:15px;">Share this code:</p>
                 <p style="text-align:center; margin-bottom:20px;"> <strong id="session-id" style="font-size:1.5em; background-color:#eee; padding:5px 10px; border-radius:4px; user-select:all; cursor:pointer;">CODE</strong> <button id="copy-code-button" title="Copy Code" style="margin-left:10px; background:none; border:none; font-size:1.2em; cursor:pointer;">📋</button> </p>
                 <div class="form-group"> <label for="friend-code">Enter Friend's Code</label> <input id="friend-code" type="text" placeholder="Paste friend's code"/> </div>
                 <button class="button" id="find-matches-button">Find Matches</button>
-                <!-- *** ADDED BUTTON TO VIEW LIKED RESTAURANTS *** -->
                 <button type="button" class="button" id="view-liked-button" style="margin-top: 15px; background-color:#007bff; border-color:#007bff;">View My Liked Restaurants</button>
                 <button class="button" id="start-over-button" style="margin-top:15px; background-color:#6c757d; border-color:#6c757d;">Start Over</button>
              </div>
 
-             <!-- *** ADDED CONTAINER FOR LIKED RESTAURANTS LIST (initially hidden) *** -->
              <div id="liked-restaurants-list" class="restaurant-list hidden">
-                 <!-- Liked restaurants will be populated here by JavaScript -->
+                 <!-- Liked restaurants will be populated here -->
              </div>
         </div>
 
@@ -171,7 +175,6 @@
         const searchButton = document.getElementById('search-button');
         const swipeUI = { currentIndex: document.getElementById('current-index'), totalRestaurants: document.getElementById('total-restaurants'), image: document.getElementById('restaurant-image'), name: document.getElementById('restaurant-name'), cuisine: document.getElementById('restaurant-cuisine'), rating: document.getElementById('restaurant-rating'), price: document.getElementById('restaurant-price'), address: document.getElementById('restaurant-address'), prevPhotoBtn: document.getElementById('prev-photo'), nextPhotoBtn: document.getElementById('next-photo'), photoIndicators: document.getElementById('photo-indicators'), dislikeButton: document.getElementById('dislike-button'), likeButton: document.getElementById('like-button'), mapsLinkPlaceholder: document.getElementById('google-maps-link-placeholder') };
         const resultsUI = { likedCount: document.getElementById('liked-count'), sessionId: document.getElementById('session-id'), friendCodeInput: document.getElementById('friend-code'), findMatchesButton: document.getElementById('find-matches-button'), startOverButton: document.getElementById('start-over-button'), copyCodeButton: document.getElementById('copy-code-button'),
-                         // *** ADDED references for liked list feature ***
                          viewLikedButton: document.getElementById('view-liked-button'),
                          likedListContainer: document.getElementById('liked-restaurants-list') };
         const matchesUI = { list: document.getElementById('matches-list'), startOverButton: document.getElementById('matches-start-over-button') };
@@ -179,7 +182,7 @@
 
         let restaurants = [];
         let currentIndex = 0;
-        let likedRestaurants = {}; // Stores { place_id: true } for liked ones
+        let likedRestaurants = {};
         let sessionId = '';
         let userCoordinates = null;
         let autocomplete = null;
@@ -193,15 +196,9 @@
         // --- Google Maps & Places API Functions ---
         function loadGoogleMapsScript() {
             if (document.getElementById('google-maps-script')) return;
-            const script = document.createElement('script');
-            script.id = 'google-maps-script';
-            const apiKey = "AIzaSyCHBWV_-CcYHftllY2aZ22SfSySw9PjqFo"; // Your key here
-            if (!apiKey || apiKey === "YOUR_GOOGLE_MAPS_API_KEY" || apiKey.length < 20) {
-                console.error("Google Maps API Key missing/invalid!");
-                showError("Map services not configured.");
-                locationInput.disabled = true; useLocationButton.disabled = true; searchButton.disabled = true;
-                return;
-            }
+            const script = document.createElement('script'); script.id = 'google-maps-script';
+            const apiKey = "AIzaSyCHBWV_-CcYHftllY2aZ22SfSySw9PjqFo"; // Your key
+            if (!apiKey || apiKey === "YOUR_GOOGLE_MAPS_API_KEY" || apiKey.length < 20) { console.error("Google Maps API Key missing/invalid!"); showError("Map services not configured."); locationInput.disabled = true; useLocationButton.disabled = true; searchButton.disabled = true; return; }
             script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry&callback=initMapServices`;
             script.async = true; script.defer = true;
             script.onerror = () => { console.error("Failed to load Google Maps script."); showError("Failed to load location services."); };
@@ -217,8 +214,7 @@
                     if (!place.geometry?.location) { userCoordinates = null; return; }
                     userCoordinates = { lat: place.geometry.location.lat(), lng: place.geometry.location.lng() };
                     console.log("Place selected:", place.name); locationInput.value = place.formatted_address || place.name;
-                });
-                console.log("Autocomplete initialized.");
+                }); console.log("Autocomplete initialized.");
             } catch (error) { console.error("Error initializing Autocomplete:", error); showError("Failed to init location search."); }
         }
         function getUserLocation() {
@@ -275,8 +271,12 @@
                  const detailsMap = details.reduce((map, d) => { map[d.placeId] = d.photos; return map; }, {});
                  restaurants = results.map(place => {
                      const placePhotos = detailsMap[place.place_id] || place.photos || [];
+                     // *** Ensure photoUrls always exists, even if empty ***
                      const photoUrls = placePhotos.slice(0, 5).map(p => p.getUrl ? p.getUrl({ maxWidth: 600 }) : null).filter(url => url);
-                     if (photoUrls.length === 0) photoUrls.push("https://placehold.co/600x400/FF5864/white?text=No+Image");
+                     // Add placeholder only if the array is truly empty after fetching/filtering
+                     if (photoUrls.length === 0) {
+                         photoUrls.push("https://placehold.co/600x400/FF5864/white?text=No+Image");
+                     }
                      let displayCuisine = searchKeyword ? searchKeyword.trim().toLowerCase().replace(/\b\w/g, l => l.toUpperCase()) : getCuisineFromTypes(place.types || []);
                      return { id: place.place_id, name: place.name || "Unnamed", address: place.vicinity || "Address unavailable", cuisine: displayCuisine, rating: place.rating ? `${place.rating}★ (${place.user_ratings_total || 0})` : "Not rated", priceLevel: place.price_level ?? 0, photoUrls, currentPhotoIndex: 0 };
                  });
@@ -307,7 +307,7 @@
             const restaurantId = restaurants[currentIndex].id;
             if (liked) { likedRestaurants[restaurantId] = true; console.log("Liked:", restaurants[currentIndex].name); }
              else { console.log("Disliked:", restaurants[currentIndex].name); }
-            saveLikesToFirebase(); // Update likes after each swipe
+            saveLikesToFirebase();
             currentIndex++;
             if (currentIndex < restaurants.length) { updateRestaurantDisplay(); }
              else { showResultsView(); }
@@ -319,57 +319,66 @@
             resultsUI.likedCount.textContent = likedCount;
             resultsUI.sessionId.textContent = sessionId;
             resultsUI.friendCodeInput.value = '';
-
-            // *** ADDED: Populate the liked restaurants list ***
             populateLikedRestaurantsList();
-            resultsUI.likedListContainer.classList.add('hidden'); // Ensure it starts hidden
-            resultsUI.viewLikedButton.textContent = 'View My Liked Restaurants'; // Reset button text
-
-            // Show/hide the "View Liked" button based on count
+            resultsUI.likedListContainer.classList.add('hidden');
+            resultsUI.viewLikedButton.textContent = 'View My Liked Restaurants';
             resultsUI.viewLikedButton.style.display = likedCount > 0 ? 'block' : 'none';
-
             showView(views.results);
         }
 
-        // *** ADDED: Function to generate HTML for the liked list ***
         function populateLikedRestaurantsList() {
             const likedListContainer = resultsUI.likedListContainer;
-            likedListContainer.innerHTML = ''; // Clear previous content
+            likedListContainer.innerHTML = '';
 
             const myLikedIds = Object.keys(likedRestaurants);
             const likedRestaurantDetails = restaurants.filter(r => myLikedIds.includes(r.id));
 
             if (likedRestaurantDetails.length > 0) {
-                 // Add a title to the list
                  const listTitle = document.createElement('h3');
-                 listTitle.textContent = "Your Liked Restaurants:";
+                 // *** Added padding specifically for the title inside the list container ***
+                 listTitle.style.padding = '15px 15px 0 15px'; // Add padding top/left/right
                  listTitle.style.marginBottom = '10px';
+                 listTitle.textContent = "Your Liked Restaurants:";
                  listTitle.style.textAlign = 'center';
                  likedListContainer.appendChild(listTitle);
 
                 likedRestaurantDetails.forEach(r => {
                     const item = document.createElement('div');
-                    item.className = 'restaurant-item'; // Reuse existing style
+                    item.className = 'restaurant-item';
+
+                    // *** ADDED: Get the first image URL (or a placeholder) ***
+                    const imageUrl = (r.photoUrls && r.photoUrls.length > 0)
+                        ? r.photoUrls[0]
+                        : "https://placehold.co/300x150/cccccc/ffffff?text=No+Image"; // Placeholder
+
                     const priceDisplay = r.priceLevel > 0 ? '$'.repeat(r.priceLevel) : 'N/A';
+
+                    // *** MODIFIED: Prepend img tag and wrap text content ***
                     item.innerHTML = `
-                        <h3>${r.name}</h3>
-                        <p>Cuisine: ${r.cuisine}</p>
-                        <p>Rating: ${r.rating}</p>
-                        <p class="price-level">Price: ${priceDisplay}</p>
-                        <p>Address: ${r.address}</p>
-                    `;
-                    const mapsLink = createGoogleMapsLink(r);
-                    if (mapsLink) {
-                        item.appendChild(mapsLink);
+                        <img src="${imageUrl}" alt="${r.name}" class="liked-item-image">
+                        <div class="restaurant-item-content">
+                            <h3>${r.name}</h3>
+                            <p>Cuisine: ${r.cuisine}</p>
+                            <p>Rating: ${r.rating}</p>
+                            <p class="price-level">Price: ${priceDisplay}</p>
+                            <p>Address: ${r.address}</p>
+                        </div>
+                    `; // Maps link will be added below
+
+                    // Find the content div we just created to append the maps link
+                    const contentDiv = item.querySelector('.restaurant-item-content');
+                    if(contentDiv){
+                       const mapsLink = createGoogleMapsLink(r);
+                       if (mapsLink) {
+                           contentDiv.appendChild(mapsLink);
+                       }
                     }
                     likedListContainer.appendChild(item);
                 });
             } else {
-                // Should not happen if button is hidden correctly, but good fallback
                 likedListContainer.innerHTML = '<p style="text-align:center; padding:20px;">You haven\'t liked any restaurants yet.</p>';
             }
         }
-
 
         function findMatches() {
             const friendCode = resultsUI.friendCodeInput.value.trim().toUpperCase();
@@ -389,25 +398,62 @@
             }).catch(err => { console.error("Match error:", err); showError('Could not get friend data.'); showView(views.results); });
         }
         function displayMatches(matchedRestaurants) {
-            matchesUI.list.innerHTML = '';
+             // *** Re-use the liked list population logic for matches ***
+            const matchesListContainer = matchesUI.list;
+            matchesListContainer.innerHTML = ''; // Clear previous matches
+
             if (matchedRestaurants.length > 0) {
-                 // Optional: Add a title maybe?
+                 // Optional Title for matches list
+                 // const listTitle = document.createElement('h3');
+                 // listTitle.style.padding = '15px 15px 0 15px';
+                 // listTitle.style.marginBottom = '10px';
+                 // listTitle.textContent = "Your Matches:";
+                 // listTitle.style.textAlign = 'center';
+                 // matchesListContainer.appendChild(listTitle);
+
+
                 matchedRestaurants.forEach(r => {
-                    const item = document.createElement('div'); item.className = 'restaurant-item';
-                    const price = r.priceLevel > 0 ? '$'.repeat(r.priceLevel) : 'N/A';
-                    item.innerHTML = `<h3>${r.name}</h3><p>Cuisine: ${r.cuisine}</p><p>Rating: ${r.rating}</p><p class="price-level">Price: ${price}</p><p>Address: ${r.address}</p>`;
-                    const mapsLink = createGoogleMapsLink(r); if (mapsLink) item.appendChild(mapsLink);
-                    matchesUI.list.appendChild(item);
+                    const item = document.createElement('div');
+                    item.className = 'restaurant-item'; // Reuse the same class
+
+                    const imageUrl = (r.photoUrls && r.photoUrls.length > 0)
+                        ? r.photoUrls[0]
+                        : "https://placehold.co/300x150/cccccc/ffffff?text=No+Image";
+
+                    const priceDisplay = r.priceLevel > 0 ? '$'.repeat(r.priceLevel) : 'N/A';
+
+                    item.innerHTML = `
+                        <img src="${imageUrl}" alt="${r.name}" class="liked-item-image">
+                        <div class="restaurant-item-content">
+                            <h3>${r.name}</h3>
+                            <p>Cuisine: ${r.cuisine}</p>
+                            <p>Rating: ${r.rating}</p>
+                            <p class="price-level">Price: ${priceDisplay}</p>
+                            <p>Address: ${r.address}</p>
+                        </div>
+                    `;
+
+                    const contentDiv = item.querySelector('.restaurant-item-content');
+                    if(contentDiv){
+                       const mapsLink = createGoogleMapsLink(r);
+                       if (mapsLink) {
+                           contentDiv.appendChild(mapsLink);
+                       }
+                    }
+                    matchesListContainer.appendChild(item);
                 });
-            } else { matchesUI.list.innerHTML = '<p style="text-align:center; padding:20px;">No common matches found!</p>'; }
+            } else {
+                matchesListContainer.innerHTML = '<p style="text-align:center; padding:20px;">No common matches found!</p>';
+            }
             showView(views.matches);
         }
+
 
         // --- Firebase Integration ---
         function generateSessionId() { return Math.random().toString(36).substring(2, 10).toUpperCase(); }
         function saveSessionToFirebase() {
             if(typeof firebase==='undefined'||!firebase.apps.length||!sessionId)return;
-            const data=restaurants.map(r=>({id:r.id,name:r.name,address:r.address,cuisine:r.cuisine,rating:r.rating,priceLevel:r.priceLevel}));
+            const data=restaurants.map(r=>({id:r.id,name:r.name,address:r.address,cuisine:r.cuisine,rating:r.rating,priceLevel:r.priceLevel, photoUrls: r.photoUrls ? [r.photoUrls[0]] : [] })); // *** Store first photo URL ***
             firebase.database().ref('sessions/'+sessionId).set({restaurants:data,timestamp:firebase.database.ServerValue.TIMESTAMP,likes:{}})
                 .then(() => console.log("Session saved:", sessionId))
                 .catch(e=>console.error("Session save error:",e));
@@ -431,10 +477,11 @@
         function resetApp() {
             locationInput.value=''; radiusSelect.value='2000'; priceLevelSelect.value=''; cuisineKeywordInput.value=''; resultsUI.friendCodeInput.value='';
             restaurants=[]; currentIndex=0; likedRestaurants={}; sessionId=''; userCoordinates=null;
-            // *** ADDED: Reset liked list view ***
             resultsUI.likedListContainer.innerHTML = '';
             resultsUI.likedListContainer.classList.add('hidden');
-            resultsUI.viewLikedButton.textContent = 'View My Liked Restaurants'; // Reset button text
+            resultsUI.viewLikedButton.textContent = 'View My Liked Restaurants';
+            // Also clear matches list
+            matchesUI.list.innerHTML = '';
 
             hideError(); showView(views.search); console.log("App reset.");
         }
@@ -443,7 +490,7 @@
             navigator.clipboard.writeText(code).then(()=>{const t=resultsUI.copyCodeButton.textContent;resultsUI.copyCodeButton.textContent='✅';setTimeout(()=>{resultsUI.copyCodeButton.textContent=t;},1500);}).catch(err=>{console.error('Copy failed:',err);showError("Copy failed.");});
         }
 
-        window.swipeUI = swipeUI; window.resultsUI = resultsUI; window.matchesUI = matchesUI; // For debugging
+        window.swipeUI = swipeUI; window.resultsUI = resultsUI; window.matchesUI = matchesUI;
 
         // --- Event Listeners ---
         searchForm.addEventListener('submit', (e) => { e.preventDefault(); fetchRestaurants(); });
@@ -458,18 +505,15 @@
         resultsUI.sessionId.addEventListener('click', () => { if (resultsUI.sessionId.textContent !== 'CODE') { window.getSelection().selectAllChildren(resultsUI.sessionId); }});
         matchesUI.startOverButton.addEventListener('click', resetApp);
 
-        // *** ADDED: Event listener for the 'View Liked' button ***
         resultsUI.viewLikedButton.addEventListener('click', () => {
             const isHidden = resultsUI.likedListContainer.classList.toggle('hidden');
-            // Update button text based on visibility state
             resultsUI.viewLikedButton.textContent = isHidden ? 'View My Liked Restaurants' : 'Hide Liked Restaurants';
         });
-
 
         // --- Initialization ---
         document.addEventListener('DOMContentLoaded', () => {
             console.log("DOM loaded."); showView(views.search); loadGoogleMapsScript();
-            setTimeout(initializeFirebase, 500); // Defer Firebase init slightly
+            setTimeout(initializeFirebase, 500);
         });
 
     </script>
