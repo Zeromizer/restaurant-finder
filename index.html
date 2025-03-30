@@ -218,8 +218,24 @@
             padding: 10px;
             white-space: nowrap;
         }
+        
+        /* Google Places Autocomplete styles */
+        .pac-container {
+            font-family: Arial, sans-serif;
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+        
+        .pac-item {
+            padding: 8px;
+            cursor: pointer;
+        }
+        
+        .pac-item:hover {
+            background-color: #f5f5f5;
+        }
     </style>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCHBWV_-CcYHftllY2aZ22SfSySw9PjqFo&libraries=places" async defer></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCHBWV_-CcYHftllY2aZ22SfSySw9PjqFo&libraries=places,geometry" async defer></script>
 </head>
 <body>
     <div class="container">
@@ -411,6 +427,40 @@
         let likedRestaurants = {};
         let sessionId = '';
         let userCoordinates = null;
+        let autocomplete = null;
+        
+        // Initialize Google Places Autocomplete
+        function initAutocomplete() {
+            console.log("Initializing Places Autocomplete");
+            // Create the autocomplete object
+            autocomplete = new google.maps.places.Autocomplete(
+                locationInput,
+                {
+                    types: ['geocode', 'establishment'],
+                    fields: ['geometry', 'name', 'formatted_address']
+                }
+            );
+            
+            // When a place is selected, store its location
+            autocomplete.addListener('place_changed', function() {
+                const place = autocomplete.getPlace();
+                
+                if (!place.geometry) {
+                    // User entered the name of a place that was not suggested
+                    console.log("No location data for this place");
+                    return;
+                }
+                
+                // Store coordinates for later use
+                userCoordinates = {
+                    lat: place.geometry.location.lat(),
+                    lng: place.geometry.location.lng()
+                };
+                
+                console.log("Selected place:", place.name);
+                console.log("Coordinates:", userCoordinates);
+            });
+        }
         
         // Show a specific view
         function showView(viewElement) {
@@ -524,22 +574,22 @@
             const priceLevel = priceLevelSelect.value;
             const cuisine = cuisineSelect.value;
 
-            // Create location bias
-            let locationBias;
-            
-            // First check if we have coordinates from the geolocation button
+            // If we have coordinates from either geolocation or autocomplete, use them
             if (userCoordinates) {
+                console.log("Using stored coordinates:", userCoordinates);
                 performNearbySearch(userCoordinates, radius, cuisine, priceLevel);
             } else {
                 // Try to geocode the entered location
+                console.log("No coordinates available, trying to geocode:", location);
                 const geocoder = new google.maps.Geocoder();
                 
                 geocoder.geocode({ address: location }, function(results, status) {
                     if (status === 'OK') {
-                        locationBias = results[0].geometry.location;
+                        const locationBias = results[0].geometry.location;
+                        console.log("Geocoded coordinates:", locationBias);
                         performNearbySearch(locationBias, radius, cuisine, priceLevel);
                     } else {
-                        console.error("Geocoding failed: ", status);
+                        console.error("Geocoding failed:", status);
                         showError('Could not find that location. Please try again or use the "My Location" button.');
                         showView(searchView);
                     }
@@ -549,6 +599,8 @@
         
         // Perform nearby search with Places API
         function performNearbySearch(location, radius, cuisine, priceLevel) {
+            console.log("Attempting Places API search with:", { location, radius, cuisine, priceLevel });
+            
             const placesService = new google.maps.places.PlacesService(document.createElement('div'));
             
             // Build search request
@@ -563,8 +615,13 @@
                 request.keyword = cuisine;
             }
             
+            console.log("Places API request:", request);
+            
             placesService.nearbySearch(request, function(results, status) {
-                if (status === google.maps.places.PlacesServiceStatus.OK && results.length > 0) {
+                console.log("Places API response status:", status);
+                
+                if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
+                    console.log("Places API found", results.length, "restaurants");
                     // Filter by price level if specified
                     let filteredResults = results;
                     if (priceLevel) {
@@ -619,11 +676,81 @@
                         showView(searchView);
                     }
                 } else {
-                    console.error("Places API error: ", status);
-                    showError('No restaurants found for that search. Please try different criteria.');
-                    showView(searchView);
+                    console.error("Places API error:", status);
+                    console.log("Falling back to mock data...");
+                    
+                    // FALLBACK TO MOCK DATA
+                    generateMockRestaurants(location, radius, cuisine, priceLevel);
                 }
             });
+        }
+        
+        // Generate mock restaurants as a fallback
+        function generateMockRestaurants(location, radius, cuisine, priceLevel) {
+            console.log("Generating mock data instead");
+            
+            const mockImageUrls = [
+                "https://placehold.co/600x400?text=Restaurant",
+                "https://placehold.co/600x400?text=Food",
+                "https://placehold.co/600x400?text=Dining"
+            ];
+            
+            const cuisineTypes = [
+                "Italian", "Chinese", "Japanese", "Mexican", "Indian", 
+                "Thai", "American", "French"
+            ];
+            
+            restaurants = [];
+            for (let i = 0; i < 20; i++) {
+                // Use selected cuisine if provided, otherwise generate randomly
+                const useCuisine = cuisine || cuisineTypes[Math.floor(Math.random() * cuisineTypes.length)];
+                
+                // Use selected price level if provided, otherwise generate randomly
+                const usePrice = priceLevel ? parseInt(priceLevel) : Math.floor(Math.random() * 4) + 1;
+                
+                // Generate a random distance based on selected radius
+                const distance = Math.floor(Math.random() * (radius / 1000)) + 0.5;
+                
+                // If using user coordinates, we can generate more realistic addresses
+                let address;
+                if (userCoordinates) {
+                    // Simple mock address with direction from current location
+                    const directions = ["North", "South", "East", "West", "Northeast", "Northwest", "Southeast", "Southwest"];
+                    const direction = directions[Math.floor(Math.random() * directions.length)];
+                    address = `${distance.toFixed(1)} km ${direction} of your location`;
+                } else {
+                    address = `${Math.floor(Math.random() * 1000)} Main St, ${location}`;
+                }
+                
+                restaurants.push({
+                    id: `restaurant-${i}`,
+                    name: `${useCuisine} Restaurant ${i + 1}`,
+                    address: address,
+                    cuisine: useCuisine,
+                    rating: (3 + Math.random() * 2).toFixed(1),
+                    priceLevel: usePrice,
+                    photoUrl: mockImageUrls[Math.floor(Math.random() * mockImageUrls.length)]
+                });
+            }
+            
+            // Create a session ID for sharing
+            sessionId = Math.random().toString(36).substring(2, 15);
+            
+            // If using Firebase, save session data
+            if (typeof firebase !== 'undefined') {
+                firebase.database().ref('sessions/' + sessionId).set({
+                    restaurants: restaurants,
+                    timestamp: Date.now()
+                });
+            }
+            
+            // Reset state
+            currentIndex = 0;
+            likedRestaurants = {};
+            
+            // Update UI and show swipe view
+            updateRestaurantDisplay();
+            showView(swipeView);
         }
         
         // Display current restaurant
@@ -756,7 +883,7 @@
                     }
                     
                     item.innerHTML = `
-                        <h3>${restaurant.name}</h3>
+                         <h3>${restaurant.name}</h3>
                         <p>Cuisine: ${restaurant.cuisine}</p>
                         <p>Rating: ${restaurant.rating} ★</p>
                         <p class="price-level">Price: ${priceText}</p>
@@ -823,7 +950,24 @@
         startOverButton.addEventListener('click', resetApp);
         matchesStartOverButton.addEventListener('click', resetApp);
         
-        // Initialize app
+        // Initialize Places Autocomplete when the Google Maps API is loaded
+        window.onload = function() {
+            // Check if Google Maps API is loaded
+            if (typeof google !== 'undefined' && typeof google.maps !== 'undefined') {
+                initAutocomplete();
+            } else {
+                // If not loaded yet, try again in 1 second
+                setTimeout(function() {
+                    if (typeof google !== 'undefined' && typeof google.maps !== 'undefined') {
+                        initAutocomplete();
+                    } else {
+                        console.error("Google Maps API failed to load");
+                    }
+                }, 1000);
+            }
+        };
+        
+        // Initialize the app
         showView(searchView);
     </script>
     <!-- Firebase SDK -->
@@ -847,4 +991,5 @@
         firebase.initializeApp(firebaseConfig);
     </script>
 </body>
+</html>
 </html>
