@@ -658,6 +658,24 @@
             }
         }
         
+        // Helper function to get additional details for a place (including more photos)
+        function getAdditionalPlaceDetails(place) {
+            return new Promise((resolve) => {
+                const placesService = new google.maps.places.PlacesService(document.createElement('div'));
+                
+                placesService.getDetails({
+                    placeId: place.place_id,
+                    fields: ['photos', 'name']
+                }, (placeDetails, status) => {
+                    if (status === google.maps.places.PlacesServiceStatus.OK && placeDetails && placeDetails.photos) {
+                        // Use these additional photos
+                        place.photos = placeDetails.photos; // This should have more photos
+                    }
+                    resolve(place);
+                });
+            });
+        }
+        
         // Perform nearby search with Places API
         function performNearbySearch(location, radius, cuisine, priceLevel) {
             console.log("Attempting Places API search with:", { location, radius, cuisine, priceLevel });
@@ -698,58 +716,66 @@
                     // Limit to 20 restaurants
                     const limitedResults = filteredResults.slice(0, 20);
                     
-                    // Format results for our app
-                    restaurants = limitedResults.map(place => {
-                        // Get up to 5 photos
-                        const photoUrls = [];
-                        if (place.photos) {
-                            // Get up to 5 photos or as many as available
-                            const photoCount = Math.min(5, place.photos.length);
-                            for (let i = 0; i < photoCount; i++) {
-                                photoUrls.push(place.photos[i].getUrl({ maxWidth: 600, maxHeight: 400 }));
+                    // Get additional details for each place (for more photos)
+                    console.log("Getting additional details for each place...");
+                    const detailPromises = limitedResults.map(place => getAdditionalPlaceDetails(place));
+                    
+                    Promise.all(detailPromises).then(placesWithDetails => {
+                        // Now map these places with more photos
+                        restaurants = placesWithDetails.map(place => {
+                            // Get up to 5 photos
+                            const photoUrls = [];
+                            if (place.photos) {
+                                const photoCount = Math.min(5, place.photos.length);
+                                for (let i = 0; i < photoCount; i++) {
+                                    photoUrls.push(place.photos[i].getUrl({ maxWidth: 600, maxHeight: 400 }));
+                                }
                             }
-                        }
-                        
-                        // If no photos available, add placeholder
-                        if (photoUrls.length === 0) {
-                            photoUrls.push("https://placehold.co/600x400?text=No+Image");
-                        }
-                        
-                        return {
-                            id: place.place_id,
-                            name: place.name,
-                            address: place.vicinity,
-                            cuisine: cuisine || getCuisineFromTypes(place.types),
-                            rating: place.rating || "No ratings yet",
-                            priceLevel: place.price_level || 1,
-                            photoUrls: photoUrls,
-                            currentPhotoIndex: 0 // Track which photo is currently displayed
-                        };
-                    });
-                    
-                    // Create a session ID for sharing
-                    sessionId = Math.random().toString(36).substring(2, 15);
-                    
-                    // If using Firebase, save session data
-                    if (typeof firebase !== 'undefined') {
-                        firebase.database().ref('sessions/' + sessionId).set({
-                            restaurants: restaurants,
-                            timestamp: Date.now()
+                            
+                            if (photoUrls.length === 0) {
+                                photoUrls.push("https://placehold.co/600x400?text=No+Image");
+                            }
+                            
+                            return {
+                                id: place.place_id,
+                                name: place.name,
+                                address: place.vicinity,
+                                cuisine: cuisine || getCuisineFromTypes(place.types),
+                                rating: place.rating || "No ratings yet",
+                                priceLevel: place.price_level || 1,
+                                photoUrls: photoUrls,
+                                currentPhotoIndex: 0
+                            };
                         });
-                    }
-                    
-                    // Reset state
-                    currentIndex = 0;
-                    likedRestaurants = {};
-                    
-                    // Update UI and show swipe view
-                    if (restaurants.length > 0) {
-                        updateRestaurantDisplay();
-                        showView(swipeView);
-                    } else {
-                        showError('No restaurants found for that search. Please try different criteria.');
-                        showView(searchView);
-                    }
+                        
+                        // Create a session ID for sharing
+                        sessionId = Math.random().toString(36).substring(2, 15);
+                        
+                        // If using Firebase, save session data
+                        if (typeof firebase !== 'undefined') {
+                            firebase.database().ref('sessions/' + sessionId).set({
+                                restaurants: restaurants,
+                                timestamp: Date.now()
+                            });
+                        }
+                        
+                        // Reset state
+                        currentIndex = 0;
+                        likedRestaurants = {};
+                        
+                        // Update UI and show swipe view
+                        if (restaurants.length > 0) {
+                            updateRestaurantDisplay();
+                            showView(swipeView);
+                        } else {
+                            showError('No restaurants found for that search. Please try different criteria.');
+                            showView(searchView);
+                        }
+                    }).catch(err => {
+                        console.error("Error getting place details:", err);
+                        showError('Error loading restaurant details. Falling back to mock data.');
+                        generateMockRestaurants(location, radius, cuisine, priceLevel);
+                    });
                 } else {
                     console.error("Places API error:", status);
                     console.log("Falling back to mock data...");
@@ -861,6 +887,11 @@
             if (restaurant.photoUrls.length <= 1) {
                 prevPhotoBtn.style.display = 'none';
                 nextPhotoBtn.style.display = 'none';
+                photoIndicators.style.display =
+                    // Show/hide navigation buttons based on photo count
+            if (restaurant.photoUrls.length <= 1) {
+                prevPhotoBtn.style.display = 'none';
+                nextPhotoBtn.style.display = 'none';
                 photoIndicators.style.display = 'none';
             } else {
                 prevPhotoBtn.style.display = 'block';
@@ -892,7 +923,8 @@
                     firebase.database().ref('sessions/' + sessionId + '/likes/' + restaurants[currentIndex].id).set(true);
                 }
             }
-if (currentIndex < restaurants.length - 1) {
+            
+            if (currentIndex < restaurants.length - 1) {
                 currentIndex++;
                 updateRestaurantDisplay();
             } else {
