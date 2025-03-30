@@ -123,7 +123,6 @@
                 </div>
                  <div class="form-group"> <label for="radius">Distance (km)</label> <select id="radius" name="radius"> <option value="1000">1 km</option> <option value="2000" selected>2 km</option> <option value="5000">5 km</option> <option value="10000">10 km</option> <option value="20000">20 km</option> </select> </div>
                  <div class="form-group"> <label for="price-level">Price Level</label> <select id="price-level" name="price-level"> <option value="">Any</option> <option value="1">$ (Inexpensive)</option> <option value="2">$$ (Moderate)</option> <option value="3">$$$ (Expensive)</option> <option value="4">$$$$ (Very Expensive)</option> </select> </div>
-                 <!-- *** MODIFIED HERE: Changed select to input for flexible keyword search *** -->
                  <div class="form-group">
                     <label for="cuisine-keyword">Cuisine or Specific Dish (Optional)</label>
                     <input type="text" id="cuisine-keyword" name="cuisine-keyword" placeholder="e.g., Italian, Pizza, Laksa, Cafe">
@@ -147,7 +146,6 @@
         const useLocationButton = document.getElementById('use-location-button');
         const radiusSelect = document.getElementById('radius');
         const priceLevelSelect = document.getElementById('price-level');
-        // *** MODIFIED HERE: Changed variable to reference the text input ***
         const cuisineKeywordInput = document.getElementById('cuisine-keyword');
         const searchButton = document.getElementById('search-button');
         const swipeUI = { currentIndex: document.getElementById('current-index'), totalRestaurants: document.getElementById('total-restaurants'), image: document.getElementById('restaurant-image'), name: document.getElementById('restaurant-name'), cuisine: document.getElementById('restaurant-cuisine'), rating: document.getElementById('restaurant-rating'), price: document.getElementById('restaurant-price'), address: document.getElementById('restaurant-address'), prevPhotoBtn: document.getElementById('prev-photo'), nextPhotoBtn: document.getElementById('next-photo'), photoIndicators: document.getElementById('photo-indicators'), dislikeButton: document.getElementById('dislike-button'), likeButton: document.getElementById('like-button'), mapsLinkPlaceholder: document.getElementById('google-maps-link-placeholder') };
@@ -173,12 +171,13 @@
             if (document.getElementById('google-maps-script')) return;
             const script = document.createElement('script');
             script.id = 'google-maps-script';
-            // IMPORTANT: Replace with your actual API key
-            const apiKey = "YOUR_GOOGLE_MAPS_API_KEY"; // <--- REPLACE THIS
-            if (!apiKey || apiKey === "YOUR_GOOGLE_MAPS_API_KEY" || apiKey.length < 20) {
-                console.error("Google Maps API Key missing/invalid! Replace 'YOUR_GOOGLE_MAPS_API_KEY' in the script.");
+
+            // *** UPDATED: Inserted your Google Maps API Key ***
+            const apiKey = "AIzaSyCHBWV_-CcYHftllY2aZ22SfSySw9PjqFo";
+
+            if (!apiKey || apiKey === "YOUR_GOOGLE_MAPS_API_KEY" || apiKey.length < 20) { // Keep check just in case
+                console.error("Google Maps API Key missing/invalid!");
                 showError("Map services are not configured correctly. Please contact the administrator.");
-                // Disable location-dependent features
                 locationInput.disabled = true;
                 useLocationButton.disabled = true;
                 searchButton.disabled = true;
@@ -219,7 +218,6 @@
                     if (!place.geometry?.location) {
                         console.warn("Autocomplete: No geometry for place:", place.name);
                         userCoordinates = null; // Reset coords if place is invalid
-                        // Optionally keep the user's typed text if no place is selected
                         return;
                     }
                     userCoordinates = {
@@ -255,7 +253,6 @@
             const locationText = locationInput.value.trim();
             const radius = parseInt(radiusSelect.value);
             const priceLevel = priceLevelSelect.value;
-            // *** MODIFIED HERE: Get value from the text input ***
             const keyword = cuisineKeywordInput.value.trim(); // Use this as the keyword
 
             if (typeof google === 'undefined' || !google.maps?.places) {
@@ -264,12 +261,10 @@
                 return;
             }
 
-            // If user coordinates are set (from "My Location" or Autocomplete), use them
             if (userCoordinates) {
                 console.log("Searching using coordinates:", userCoordinates);
                 performNearbySearch(userCoordinates, radius, keyword, priceLevel); // Pass keyword
             }
-            // Else if location text is provided (and not the placeholder for current location)
             else if (locationText && !locationText.startsWith("Current Location")) {
                 console.log("Searching using text address:", locationText);
                 const geocoder = new google.maps.Geocoder();
@@ -288,7 +283,6 @@
                     }
                 });
             }
-            // Else, no valid location provided
             else {
                 showError("Please provide a location (type an address or use 'My Location').");
                 showView(views.search);
@@ -296,20 +290,18 @@
         }
 
         function performNearbySearch(coords, radius, keyword, priceLevel) {
-            const placesService = new google.maps.places.PlacesService(document.createElement('div')); // Need a map instance or dummy element
+            const placesService = new google.maps.places.PlacesService(document.createElement('div'));
             let request = {
                 location: new google.maps.LatLng(coords.lat, coords.lng),
                 radius: radius,
-                type: 'restaurant' // Base type
-                 //*** MODIFIED HERE: Always use the keyword if provided ***
-                 // The 'keyword' param searches name, type, address, reviews - good for specific dishes like "Laksa"
+                type: 'restaurant'
             };
             if (keyword) {
                  request.keyword = keyword;
             }
             if (priceLevel) {
                 const price = parseInt(priceLevel);
-                request.minPriceLevel = price; // Google uses 0-4 scale
+                request.minPriceLevel = price;
                 request.maxPriceLevel = price;
             }
 
@@ -318,7 +310,6 @@
             placesService.nearbySearch(request, (results, status, pagination) => {
                 console.log("Places API Response Status:", status);
                 if (status === google.maps.places.PlacesServiceStatus.OK && results?.length > 0) {
-                    // Filter for operational places and limit results (e.g., top 20)
                     const operationalRestaurants = results.filter(p => p.business_status === 'OPERATIONAL').slice(0, 20);
 
                     if (operationalRestaurants.length === 0) {
@@ -339,14 +330,12 @@
             });
         }
 
-        // Fetches detailed info like photos for multiple places efficiently
         function getPlaceDetails(placeIds) {
             const placesService = new google.maps.places.PlacesService(document.createElement('div'));
-            const detailFields = ['photos', 'name', 'place_id']; // Minimal fields needed
+            const detailFields = ['photos', 'name', 'place_id'];
 
             const promises = placeIds.map(id => new Promise((resolve) => {
                 placesService.getDetails({ placeId: id, fields: detailFields }, (details, status) => {
-                    // Resolve even if error, just with empty photos
                     resolve({
                         placeId: id,
                         photos: (status === google.maps.places.PlacesServiceStatus.OK && details?.photos) ? details.photos : []
@@ -363,41 +352,37 @@
                  console.log("Fetching details for Place IDs:", placeIds);
                  const detailsList = await getPlaceDetails(placeIds);
 
-                 // Create a map for easy lookup: { placeId: [photo1, photo2,...] }
                  const photoDetailsMap = detailsList.reduce((map, detail) => {
                      map[detail.placeId] = detail.photos;
                      return map;
                  }, {});
 
                  restaurants = results.map(place => {
-                     const placePhotos = photoDetailsMap[place.place_id] || place.photos || []; // Use detailed photos if available, fallback to nearbySearch photos
-                     const photoUrls = placePhotos.slice(0, 5) // Limit to 5 photos
-                         .map(p => p.getUrl ? p.getUrl({ maxWidth: 600 }) : null) // Get URL with max width
-                         .filter(url => url); // Remove nulls if getUrl failed
+                     const placePhotos = photoDetailsMap[place.place_id] || place.photos || [];
+                     const photoUrls = placePhotos.slice(0, 5)
+                         .map(p => p.getUrl ? p.getUrl({ maxWidth: 600 }) : null)
+                         .filter(url => url);
 
-                     // Add a placeholder if no photos found
                      if (photoUrls.length === 0) {
                          photoUrls.push("https://placehold.co/600x400/FF5864/white?text=No+Image");
                      }
 
-                     // *** MODIFIED HERE: Prioritize searchKeyword for cuisine display ***
-                     let displayCuisine = "Food"; // Default
+                     let displayCuisine = "Food";
                      if (searchKeyword) {
-                         // Capitalize the first letter of each word in the search keyword
                          displayCuisine = searchKeyword.trim().toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
                      } else {
-                         displayCuisine = getCuisineFromTypes(place.types || []); // Fallback if no keyword was used
+                         displayCuisine = getCuisineFromTypes(place.types || []);
                      }
 
                      return {
                          id: place.place_id,
                          name: place.name || "Unnamed Restaurant",
                          address: place.vicinity || "Address unavailable",
-                         cuisine: displayCuisine, // Use the determined display cuisine
+                         cuisine: displayCuisine,
                          rating: place.rating ? `${place.rating} ★ (${place.user_ratings_total || 0} reviews)` : "Not rated",
-                         priceLevel: place.price_level ?? 0, // 0 = N/A, 1-4 = $-$$$$
+                         priceLevel: place.price_level ?? 0,
                          photoUrls: photoUrls,
-                         currentPhotoIndex: 0 // Initialize for photo navigation
+                         currentPhotoIndex: 0
                      };
                  });
 
@@ -410,7 +395,7 @@
                  console.log("Processed restaurants:", restaurants);
 
                  sessionId = generateSessionId();
-                 saveSessionToFirebase(); // Save initial data (without likes yet)
+                 saveSessionToFirebase();
                  currentIndex = 0;
                  likedRestaurants = {};
                  updateRestaurantDisplay();
@@ -425,21 +410,18 @@
 
 
          function getCuisineFromTypes(types) {
-            // Simple mapping for common types (can be expanded)
             const typeMap = { 'cafe': 'Cafe', 'bar': 'Bar', 'bakery': 'Bakery' };
             const knownCuisines = ["Italian", "Chinese", "Japanese", "Mexican", "Indian", "Thai", "American", "French", "Vietnamese", "Korean", "Mediterranean", "Pizza", "Sushi", "Seafood", "Steakhouse"];
 
             for (const type of types) {
-                // Format type: replace underscores, capitalize words
                 const formattedType = type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
                 if (knownCuisines.includes(formattedType)) {
-                    return formattedType; // Return known cuisine type
+                    return formattedType;
                 }
                 if (typeMap[type]) {
-                    return typeMap[type]; // Return mapped type
+                    return typeMap[type];
                 }
             }
-            // Fallback if no specific cuisine identified
             return types.includes('restaurant') ? 'Restaurant' : 'Food';
         }
 
@@ -447,23 +429,21 @@
         function createGoogleMapsLink(restaurant) {
             if (!restaurant) return null;
             let url;
-            // Prefer place_id for accuracy
             if (restaurant.id) {
                 url = `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${restaurant.id}`;
             } else if (restaurant.name && restaurant.address) {
-                // Fallback to name + address query
                 const query = encodeURIComponent(`${restaurant.name}, ${restaurant.address}`);
                 url = `https://www.google.com/maps/search/?api=1&query=${query}`;
             } else {
-                return null; // Cannot generate link
+                return null;
             }
 
             const link = document.createElement('a');
             link.href = url;
             link.textContent = "View on Google Maps ↗";
             link.className = "google-maps-link";
-            link.target = "_blank"; // Open in new tab
-            link.rel = "noopener noreferrer"; // Security best practice
+            link.target = "_blank";
+            link.rel = "noopener noreferrer";
             return link;
         }
 
@@ -471,7 +451,7 @@
         // --- Swipe UI Functions ---
         function updateRestaurantDisplay() {
             if (currentIndex >= restaurants.length) {
-                showResultsView(); // All restaurants swiped
+                showResultsView();
                 return;
             }
 
@@ -479,77 +459,69 @@
             swipeUI.currentIndex.textContent = currentIndex + 1;
             swipeUI.totalRestaurants.textContent = restaurants.length;
 
-            // Photo display and navigation
-            restaurant.currentPhotoIndex = restaurant.currentPhotoIndex || 0; // Ensure index exists
+            restaurant.currentPhotoIndex = restaurant.currentPhotoIndex || 0;
             swipeUI.image.src = restaurant.photoUrls[restaurant.currentPhotoIndex];
             swipeUI.image.alt = restaurant.name;
 
-            // Update photo dots
-            swipeUI.photoIndicators.innerHTML = ''; // Clear previous dots
+            swipeUI.photoIndicators.innerHTML = '';
             restaurant.photoUrls.forEach((_, index) => {
                 const dot = document.createElement('span');
                 dot.className = 'photo-dot' + (index === restaurant.currentPhotoIndex ? ' active' : '');
                 swipeUI.photoIndicators.appendChild(dot);
             });
 
-            // Show/hide photo navigation buttons and dots
             const showNav = restaurant.photoUrls.length > 1;
             swipeUI.prevPhotoBtn.style.display = showNav ? 'flex' : 'none';
             swipeUI.nextPhotoBtn.style.display = showNav ? 'flex' : 'none';
             swipeUI.photoIndicators.style.display = showNav ? 'flex' : 'none';
 
 
-            // Update text content
             swipeUI.name.textContent = restaurant.name;
-            swipeUI.cuisine.textContent = `Cuisine: ${restaurant.cuisine}`; // Display the cuisine/keyword
+            swipeUI.cuisine.textContent = `Cuisine: ${restaurant.cuisine}`;
             swipeUI.rating.textContent = `Rating: ${restaurant.rating}`;
             swipeUI.price.textContent = `Price: ${restaurant.priceLevel > 0 ? '$'.repeat(restaurant.priceLevel) : 'N/A'}`;
             swipeUI.address.textContent = `Address: ${restaurant.address}`;
 
-            // Add Google Maps link
-            swipeUI.mapsLinkPlaceholder.innerHTML = ''; // Clear previous link
+            swipeUI.mapsLinkPlaceholder.innerHTML = '';
             const mapsLink = createGoogleMapsLink(restaurant);
             if (mapsLink) {
                 swipeUI.mapsLinkPlaceholder.appendChild(mapsLink);
             }
 
-             // Reset scroll position of card content
              const cardContent = views.swipe.querySelector('.card-content');
              if (cardContent) cardContent.scrollTop = 0;
         }
 
         function changePhoto(direction) {
-            if (currentIndex >= restaurants.length) return; // No restaurant loaded
+            if (currentIndex >= restaurants.length) return;
             const restaurant = restaurants[currentIndex];
             const numPhotos = restaurant.photoUrls.length;
-            if (numPhotos <= 1) return; // No other photos to navigate to
+            if (numPhotos <= 1) return;
 
-            // Calculate new index, wrapping around
             restaurant.currentPhotoIndex = (restaurant.currentPhotoIndex + direction + numPhotos) % numPhotos;
-            updateRestaurantDisplay(); // Re-render card with new photo
+            updateRestaurantDisplay();
         }
 
 
         function handleSwipe(liked) {
-            if (currentIndex >= restaurants.length) return; // Should not happen if UI is correct
+            if (currentIndex >= restaurants.length) return;
 
             const restaurantId = restaurants[currentIndex].id;
             if (liked) {
-                likedRestaurants[restaurantId] = true; // Mark as liked
+                likedRestaurants[restaurantId] = true;
                 console.log("Liked:", restaurants[currentIndex].name);
             } else {
                 console.log("Disliked:", restaurants[currentIndex].name);
-                // We only need to store likes for matching
             }
 
-            saveLikesToFirebase(); // Update likes in Firebase
+            saveLikesToFirebase();
 
-            currentIndex++; // Move to the next restaurant
+            currentIndex++;
 
             if (currentIndex < restaurants.length) {
-                updateRestaurantDisplay(); // Show next card
+                updateRestaurantDisplay();
             } else {
-                showResultsView(); // End of swipe session
+                showResultsView();
             }
         }
 
@@ -559,12 +531,12 @@
             const likedCount = Object.keys(likedRestaurants).length;
             resultsUI.likedCount.textContent = likedCount;
             resultsUI.sessionId.textContent = sessionId;
-            resultsUI.friendCodeInput.value = ''; // Clear friend code input
+            resultsUI.friendCodeInput.value = '';
             showView(views.results);
         }
 
         function findMatches() {
-            const friendCode = resultsUI.friendCodeInput.value.trim().toUpperCase(); // Standardize code format
+            const friendCode = resultsUI.friendCodeInput.value.trim().toUpperCase();
             if (!friendCode) {
                 showError('Please enter your friend\'s code.');
                 return;
@@ -574,48 +546,42 @@
                 return;
             }
 
-            showView(views.loading); // Show loading while fetching friend's data
+            showView(views.loading);
             hideError();
 
-             // Check if Firebase is available
             if (typeof firebase === 'undefined' || !firebase.apps.length) {
                 console.warn("Firebase not initialized. Cannot fetch friend data.");
                 showError("Matching service is unavailable. Could not connect.");
-                 // Simulate no matches after a delay
                 setTimeout(() => {
-                    displayMatches([]); // Display empty matches
-                    showView(views.matches); // Show the matches view anyway
+                    displayMatches([]);
+                    showView(views.matches);
                 }, 1500);
                 return;
             }
 
-            // Fetch friend's session data from Firebase
             firebase.database().ref('sessions/' + friendCode).once('value')
                 .then(snapshot => {
                     const friendData = snapshot.val();
 
                     if (!friendData) {
                         showError(`Friend code "${friendCode}" not found or expired.`);
-                        showView(views.results); // Go back to results view
+                        showView(views.results);
                         return;
                     }
 
-                    const friendLikes = friendData.likes || {}; // Friend's liked restaurant IDs
+                    const friendLikes = friendData.likes || {};
                     const friendLikedIds = Object.keys(friendLikes);
-                    const myLikedIds = Object.keys(likedRestaurants); // Your liked restaurant IDs
+                    const myLikedIds = Object.keys(likedRestaurants);
 
-                    // Find common IDs
                     const matchedIds = myLikedIds.filter(id => friendLikedIds.includes(id));
 
-                    // Get full restaurant details for matched IDs
-                    // Combine data from both sessions in case one is missing details (unlikely but safe)
                     const friendRestaurantsData = friendData.restaurants || [];
                     const friendMap = friendRestaurantsData.reduce((map, r) => { map[r.id] = r; return map; }, {});
                     const myMap = restaurants.reduce((map, r) => { map[r.id] = r; return map; }, {});
 
                     const matchedRestaurants = matchedIds
-                        .map(id => friendMap[id] || myMap[id]) // Get details from friend's data first, fallback to yours
-                        .filter(r => r); // Filter out any potential nulls if ID somehow doesn't match any restaurant
+                        .map(id => friendMap[id] || myMap[id])
+                        .filter(r => r);
 
                     console.log("Matches found:", matchedRestaurants);
                     displayMatches(matchedRestaurants);
@@ -624,17 +590,17 @@
                 .catch(error => {
                     console.error("Error fetching friend's data:", error);
                     showError('Could not retrieve friend\'s data. Please check the code and try again.');
-                    showView(views.results); // Go back to results view
+                    showView(views.results);
                 });
         }
 
         function displayMatches(matchedRestaurants) {
-            matchesUI.list.innerHTML = ''; // Clear previous matches
+            matchesUI.list.innerHTML = '';
 
             if (matchedRestaurants.length > 0) {
                 matchedRestaurants.forEach(r => {
                     const item = document.createElement('div');
-                    item.className = 'restaurant-item'; // Reuse existing style
+                    item.className = 'restaurant-item';
                     const priceDisplay = r.priceLevel > 0 ? '$'.repeat(r.priceLevel) : 'N/A';
                     item.innerHTML = `
                         <h3>${r.name}</h3>
@@ -663,9 +629,8 @@
         function saveSessionToFirebase() {
             if (typeof firebase === 'undefined' || !firebase.apps.length || !sessionId) {
                  console.warn("Firebase not ready or no session ID, skipping session save.");
-                 return; // Don't try to save if Firebase isn't working or no session
+                 return;
             }
-            // Store only essential, non-photo data to keep Firebase usage low
              const restaurantsToSave = restaurants.map(r => ({
                  id: r.id,
                  name: r.name,
@@ -673,13 +638,12 @@
                  cuisine: r.cuisine,
                  rating: r.rating,
                  priceLevel: r.priceLevel
-                 // Don't save photoUrls or currentPhotoIndex
              }));
 
              const sessionData = {
                  restaurants: restaurantsToSave,
-                 timestamp: firebase.database.ServerValue.TIMESTAMP, // Record when created
-                 likes: {} // Initialize empty likes object
+                 timestamp: firebase.database.ServerValue.TIMESTAMP,
+                 likes: {}
              };
 
              firebase.database().ref('sessions/' + sessionId).set(sessionData)
@@ -690,7 +654,7 @@
         function saveLikesToFirebase() {
              if (typeof firebase === 'undefined' || !firebase.apps.length || !sessionId) {
                 console.warn("Firebase not ready or no session ID, skipping likes save.");
-                return; // Don't try to save if Firebase isn't working or no session
+                return;
              }
 
              firebase.database().ref('sessions/' + sessionId + '/likes').set(likedRestaurants)
@@ -701,23 +665,21 @@
         function initializeFirebase() {
             if (typeof firebase === 'undefined' || typeof firebase.initializeApp === 'undefined') {
                 console.warn("Firebase SDK not loaded yet.");
-                // Optionally disable sharing features if SDK fails
                 return;
             }
             try {
-                // IMPORTANT: Replace with your actual Firebase config
+                // *** UPDATED: Inserted your Firebase Config ***
                  const firebaseConfig = {
-                   apiKey: "YOUR_FIREBASE_API_KEY", // <--- REPLACE
-                   authDomain: "YOUR_FIREBASE_AUTH_DOMAIN", // <--- REPLACE
-                   databaseURL: "YOUR_FIREBASE_DATABASE_URL", // <--- REPLACE
-                   projectId: "YOUR_FIREBASE_PROJECT_ID", // <--- REPLACE
-                   storageBucket: "YOUR_FIREBASE_STORAGE_BUCKET", // <--- REPLACE
-                   messagingSenderId: "YOUR_FIREBASE_MESSAGING_SENDER_ID", // <--- REPLACE
-                   appId: "YOUR_FIREBASE_APP_ID", // <--- REPLACE
-                   measurementId: "YOUR_FIREBASE_MEASUREMENT_ID" // optional
+                   apiKey: "AIzaSyDauSN6vXVeflYHYdx54hIsXWeTxp-CarM",
+                   authDomain: "restaurant-finder-36e61.firebaseapp.com",
+                   databaseURL: "https://restaurant-finder-36e61-default-rtdb.asia-southeast1.firebasedatabase.app",
+                   projectId: "restaurant-finder-36e61",
+                   storageBucket: "restaurant-finder-36e61.appspot.com",
+                   messagingSenderId: "266887715200",
+                   appId: "1:266887715200:web:6c68d924d7596cdfb44965",
+                   measurementId: "G-TD5GNXZZMN"
                  };
 
-                 // Initialize Firebase only if it hasn't been initialized yet
                  if (!firebase.apps.length) {
                      firebase.initializeApp(firebaseConfig);
                      console.log("Firebase initialized successfully.");
@@ -728,7 +690,6 @@
             } catch (e) {
                  console.error("Firebase initialization error:", e);
                  showError("Sharing features are currently unavailable due to a configuration issue.");
-                 // Disable sharing-related buttons if needed
                  resultsUI.findMatchesButton.disabled = true;
                  resultsUI.copyCodeButton.disabled = true;
             }
@@ -737,22 +698,19 @@
 
         // --- Utility & Event Listeners ---
         function resetApp() {
-            // Reset form fields
             locationInput.value = '';
-            radiusSelect.value = '2000'; // Default radius
-            priceLevelSelect.value = ''; // Default price
-            // *** MODIFIED HERE: Reset the text input ***
+            radiusSelect.value = '2000';
+            priceLevelSelect.value = '';
             cuisineKeywordInput.value = '';
             resultsUI.friendCodeInput.value = '';
 
-            // Reset state variables
             restaurants = [];
             currentIndex = 0;
             likedRestaurants = {};
             sessionId = '';
-            userCoordinates = null; // Important to reset coordinates
+            userCoordinates = null;
             hideError();
-            showView(views.search); // Go back to the start
+            showView(views.search);
             console.log("App reset.");
         }
 
@@ -764,9 +722,9 @@
             }
             navigator.clipboard.writeText(code).then(() => {
                 const originalText = resultsUI.copyCodeButton.textContent;
-                resultsUI.copyCodeButton.textContent = '✅'; // Indicate success
+                resultsUI.copyCodeButton.textContent = '✅';
                 setTimeout(() => {
-                    resultsUI.copyCodeButton.textContent = originalText; // Revert back
+                    resultsUI.copyCodeButton.textContent = originalText;
                 }, 1500);
             }).catch(err => {
                 console.error('Failed to copy session code:', err);
@@ -774,14 +732,13 @@
             });
         }
 
-        // Add references to global scope for easy debugging (optional)
         window.swipeUI = swipeUI;
         window.resultsUI = resultsUI;
         window.matchesUI = matchesUI;
 
         // --- Event Listeners ---
         searchForm.addEventListener('submit', (e) => {
-            e.preventDefault(); // Prevent default form submission
+            e.preventDefault();
             fetchRestaurants();
         });
 
@@ -795,7 +752,6 @@
         resultsUI.findMatchesButton.addEventListener('click', findMatches);
         resultsUI.startOverButton.addEventListener('click', resetApp);
         resultsUI.copyCodeButton.addEventListener('click', copySessionId);
-        // Allow clicking the code itself to select it for easy copying
         resultsUI.sessionId.addEventListener('click', () => {
              if (resultsUI.sessionId.textContent !== 'CODE') {
                 window.getSelection().selectAllChildren(resultsUI.sessionId);
@@ -808,16 +764,15 @@
         // --- Initialization ---
         document.addEventListener('DOMContentLoaded', () => {
             console.log("DOM fully loaded and parsed.");
-            showView(views.search); // Start on the search view
-            loadGoogleMapsScript(); // Start loading Google Maps API
-            // Defer Firebase init slightly to ensure SDKs are loaded via script tags
+            showView(views.search);
+            loadGoogleMapsScript();
+            // Defer Firebase init slightly
             setTimeout(initializeFirebase, 500);
         });
 
     </script>
 
     <!-- Firebase SDKs (use compat versions for Realtime Database access pattern used here) -->
-    <!-- Make sure these load AFTER your main script or use defer -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js" defer></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js" defer></script>
 
