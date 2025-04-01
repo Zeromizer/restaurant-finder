@@ -332,12 +332,13 @@
             }
 
             const request = {
-                locationRestriction: {
-                    circle: {
-                        center: latLng,
-                        radius: radius
-                    }
-                },
+            locationRestriction: {
+                circle: {
+                    // Use a LatLngLiteral (plain object) instead of LatLng object instance
+                    center: { lat: coords.lat, lng: coords.lng },
+                    radius: radius // radius should be a number (which it is)
+                }
+            },
                 includedTypes: ['restaurant'], // Core type filter
                 maxResultCount: 20, // Max results to return
                 fields: fields, // Specify needed fields
