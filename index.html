@@ -314,11 +314,10 @@
             const latLng = new google.maps.LatLng(coords.lat, coords.lng);
 
             // Define fields to request from the New API
-            // IMPORTANT: Prefix field names with 'places.' when used in searchNearby
             const fields = [
-                'places.id', 'places.displayName', 'places.formattedAddress', 'places.types',
-                'places.rating', 'places.userRatingCount', 'places.priceLevel',
-                'places.businessStatus', 'places.photos' // Request photos directly
+                'id', 'displayName', 'formattedAddress', 'types', // No 'places.' prefix
+                'rating', 'userRatingCount', 'priceLevel',       // No 'places.' prefix
+                'businessStatus', 'photos'                       // No 'places.' prefix
             ];
 
             // Map numeric price level to New API PriceLevel enums
