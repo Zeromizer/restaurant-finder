@@ -140,7 +140,7 @@
         <div id="loading-view" class="view transition-hidden"> <div class="loading"><div class="spinner"></div><p id="loading-text">Finding restaurants...</p></div> </div>
 
         <!-- Swipe View -->
-        <div id="swipe-view" class="view transition-hidden"> <div class="header"> <h1>Find Your Match</h1> <p>Restaurant <span id="current-index">1</span> of <span id="total-restaurants">?</span></p> </div> <div class="card"> <div class="photo-container"> <img class="card-img" id="restaurant-image" src="..." alt="Restaurant"> <div class="photo-nav"> <button id="prev-photo" class="photo-nav-btn">❮</button> <div id="photo-indicators"></div> <button id="next-photo" class="photo-nav-btn">❯</button> </div> </div> <div class="card-content"> <h2 class="card-title" id="restaurant-name">...</h2> <p class="card-info" id="restaurant-cuisine">...</p> <p class="card-info" id="restaurant-rating">...</p> <p class="card-info" id="restaurant-price">...</p <p class="card-info" id="restaurant-address">...</p> <div id="google-maps-link-placeholder"></div> </div> <div class="card-actions"> <div class="action-button dislike-button" id="dislike-button">❌</div> <div class="action-button like-button" id="like-button">❤️</div> </div> </div> </div>
+        <div id="swipe-view" class="view transition-hidden"> <div class="header"> <h1>Find Your Match</h1> <p>Restaurant <span id="current-index">1</span> of <span id="total-restaurants">?</span></p> </div> <div class="card"> <div class="photo-container"> <img class="card-img" id="restaurant-image" src="..." alt="Restaurant"> <div class="photo-nav"> <button id="prev-photo" class="photo-nav-btn">❮</button> <div id="photo-indicators"></div> <button id="next-photo" class="photo-nav-btn">❯</button> </div> </div> <div class="card-content"> <h2 class="card-title" id="restaurant-name">...</h2> <p class="card-info" id="restaurant-cuisine">...</p> <p class="card-info" id="restaurant-rating">...</p> <p class="card-info" id="restaurant-price">...</p> <p class="card-info" id="restaurant-address">...</p> <div id="google-maps-link-placeholder"></div> </div> <div class="card-actions"> <div class="action-button dislike-button" id="dislike-button">❌</div> <div class="action-button like-button" id="like-button">❤️</div> </div> </div> </div>
 
         <!-- Results View -->
         <div id="results-view" class="view transition-hidden">
@@ -221,49 +221,38 @@
         let userCoordinates = null;
         let autocomplete = null;
         let currentVisibleView = views.search;
-        const apiKey = "AIzaSyCHBWV_-CcYHftllY2aZ22SfSySw9PjqFo"; // Your key - KEEP THIS
 
         // --- Helper Functions ---
         function showView(viewToShow) { Object.values(views).forEach(view => { if (view !== viewToShow) view.classList.add('transition-hidden'); }); viewToShow.classList.remove('transition-hidden'); currentVisibleView = viewToShow; window.scrollTo(0, 0); }
-        function showError(message) { console.error("Error Displayed:", message); errorContainer.textContent = message; errorContainer.classList.remove('hidden'); }
+        function showError(message) { errorContainer.textContent = message; errorContainer.classList.remove('hidden'); }
         function hideError() { errorContainer.classList.add('hidden'); errorContainer.textContent = ''; }
         function setLoadingText(text) { loadingText.textContent = text; }
 
-        // --- Google Maps & Places API Functions (NEW API Approach) ---
+        // --- Google Maps & Places API Functions ---
         function loadGoogleMapsScript() {
             if (document.getElementById('google-maps-script')) return;
             const script = document.createElement('script'); script.id = 'google-maps-script';
-            if (!apiKey || apiKey.startsWith("YOUR_") || apiKey.length < 20) { console.error("Google Maps API Key missing/invalid!"); showError("Map services not configured."); locationInput.disabled = true; useLocationButton.disabled = true; searchButton.disabled = true; return; }
-            // *** Use standard weekly channel (no v=beta) ***
+            const apiKey = "AIzaSyCHBWV_-CcYHftllY2aZ22SfSySw9PjqFo"; // Your key
+            if (!apiKey || apiKey === "YOUR_GOOGLE_MAPS_API_KEY" || apiKey.length < 20) { console.error("Google Maps API Key missing/invalid!"); showError("Map services not configured."); locationInput.disabled = true; useLocationButton.disabled = true; searchButton.disabled = true; return; }
             script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry&callback=initMapServices`;
             script.async = true; script.defer = true;
             script.onerror = () => { console.error("Failed to load Google Maps script."); showError("Failed to load location services."); };
             document.head.appendChild(script);
         }
-        window.initMapServices = function() {
-             console.log("Google Maps API loaded.");
-             if (typeof google === 'undefined' || !google.maps?.places) {
-                 console.error("Google Maps Places components not available after load.");
-                 showError("Failed to initialize location services.");
-                 return;
-             }
-             initAutocomplete();
-        };
+        window.initMapServices = function() { console.log("Google Maps API loaded."); initAutocomplete(); };
         function initAutocomplete() {
-             // Autocomplete setup remains the same
-             if (!google.maps.places.Autocomplete) { console.error("Autocomplete library not ready."); showError("Location search failed."); return; }
+            if (typeof google === 'undefined' || !google.maps?.places?.Autocomplete) { console.error("Autocomplete library not ready."); showError("Location search failed."); return; }
             try {
                 autocomplete = new google.maps.places.Autocomplete(locationInput, { types: ['geocode', 'establishment'], fields: ['geometry', 'name', 'formatted_address', 'place_id'], componentRestrictions: { country: [] } });
                 autocomplete.addListener('place_changed', () => {
                     const place = autocomplete.getPlace(); hideError();
-                    if (!place.geometry?.location) { userCoordinates = null; console.warn("Autocomplete place has no geometry:", place); return; }
+                    if (!place.geometry?.location) { userCoordinates = null; return; }
                     userCoordinates = { lat: place.geometry.location.lat(), lng: place.geometry.location.lng() };
-                    console.log("Place selected:", place.name, userCoordinates); locationInput.value = place.formatted_address || place.name;
+                    console.log("Place selected:", place.name); locationInput.value = place.formatted_address || place.name;
                 }); console.log("Autocomplete initialized.");
             } catch (error) { console.error("Error initializing Autocomplete:", error); showError("Failed to init location search."); }
         }
         function getUserLocation() {
-             // Geolocation remains the same
              if (!navigator.geolocation) { showError("Geolocation not supported."); return; }
              const btn = useLocationButton; btn.textContent = "Finding..."; btn.disabled = true; hideError();
              navigator.geolocation.getCurrentPosition( (pos) => {
@@ -275,239 +264,69 @@
              }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
          }
         function fetchRestaurants() {
-            // fetchRestaurants logic remains the same
-            setLoadingText("Finding restaurants...");
+            setLoadingText("Finding restaurants..."); // Reset loading text
             showView(views.loading); hideError();
             const locationText = locationInput.value.trim(), radius = parseInt(radiusSelect.value), priceLevel = priceLevelSelect.value, keyword = cuisineKeywordInput.value.trim();
-
-             if (typeof google === 'undefined' || !google.maps?.places?.Place) {
-                 showError("Location services (New API) not ready.");
-                 showView(views.search);
-                 return;
-             }
-
-            if (userCoordinates) {
-                performNearbySearch(userCoordinates, radius, keyword, priceLevel);
-            } else if (locationText && !locationText.startsWith("Current Location")) {
+            if (typeof google === 'undefined' || !google.maps?.places) { showError("Location services not ready."); showView(views.search); return; }
+            if (userCoordinates) { performNearbySearch(userCoordinates, radius, keyword, priceLevel); }
+            else if (locationText && !locationText.startsWith("Current Location")) {
                 const geocoder = new google.maps.Geocoder();
                 geocoder.geocode({ address: locationText }, (results, status) => {
                     if (status === 'OK' && results?.[0]?.geometry?.location) {
                         userCoordinates = { lat: results[0].geometry.location.lat(), lng: results[0].geometry.location.lng() };
                         performNearbySearch(userCoordinates, radius, keyword, priceLevel);
-                    } else { showError(`Could not find "${locationText}". Status: ${status}`); showView(views.search); }
+                    } else { showError(`Could not find "${locationText}".`); showView(views.search); }
                 });
-            } else {
-                showError("Please provide a location or use 'My Location'.");
-                showView(views.search);
-            }
+            } else { showError("Please provide a location."); showView(views.search); }
         }
-
-        // *** Perform search using Place.searchNearby (NEW API) ***
-        async function performNearbySearch(coords, radius, keyword, priceLevel) {
-            if (!google.maps.places || !google.maps.places.Place) {
-                 showError("Places API (New) not available.");
-                 showView(views.search);
-                 return;
-            }
-
-            // *** 1. Validate Inputs ***
-            console.log("Validating inputs before building request:");
-            console.log("Received coords object:", coords);
-            console.log("Received radius value:", radius);
-            const lat = Number(coords?.lat);
-            const lng = Number(coords?.lng);
-            const numericRadius = Number(radius);
-
-            if (isNaN(lat) || isNaN(lng)) {
-                 console.error(`Invalid coordinates: lat=${lat}, lng=${lng}`);
-                 showError(`Invalid coordinates provided.`);
-                 showView(views.search); return;
-            }
-            if (isNaN(numericRadius) || numericRadius <= 0) {
-                 console.error(`Invalid radius: ${numericRadius}`);
-                 showError("Invalid distance/radius value.");
-                 showView(views.search); return;
-            }
-            console.log(`Validated coords: lat=${lat}, lng=${lng}. Validated radius: ${numericRadius}`);
-
-            // *** 2. Define Request Fields (Corrected - no prefixes) ***
-            const fields = [
-                'id', 'displayName', 'formattedAddress', 'types',
-                'rating', 'userRatingCount', 'priceLevel',
-                'businessStatus', 'photos'
-            ];
-
-            // *** 3. Prepare Price Level Filter ***
-            const priceLevels = [];
-            if (priceLevel) {
-                const level = parseInt(priceLevel);
-                if (level >= 1 && level <= 4) {
-                    const priceMap = { 1: "PRICE_LEVEL_INEXPENSIVE", 2: "PRICE_LEVEL_MODERATE", 3: "PRICE_LEVEL_EXPENSIVE", 4: "PRICE_LEVEL_VERY_EXPENSIVE" };
-                    priceLevels.push(priceMap[level]);
-                }
-            }
-
-            // *** 4. Build the Request Object (Corrected Structure) ***
-            const request = {
-                // Use validated inputs
-                locationRestriction: {
-                    circle: {
-                        center: { lat: lat, lng: lng }, // Use LatLngLiteral
-                        radius: numericRadius
-                    }
-                },
-                // No 'includedTypes' here for JS SDK searchNearby
-                fields: fields,
-                maxResultCount: 20, // Limit results
-                language: 'en',
-            };
-
-            // Add price level filter if applicable
-            if (priceLevels.length > 0) {
-                request.priceLevels = priceLevels;
-            }
-
-            console.log("Final New Places API Request Object:", request);
-
-            // *** 5. Make the API Call ***
-            try {
-                const { places } = await google.maps.places.Place.searchNearby(request);
-                console.log("New Places API Response Raw:", places);
-
-                // *** 6. Process Results ***
-                if (places && places.length > 0) {
-                    // Filter for operational status
-                    let operational = places.filter(p => p.businessStatus === 'OPERATIONAL');
-
-                    // Filter by keyword (client-side)
-                    if (keyword) {
-                        const lowerKeyword = keyword.toLowerCase();
-                        operational = operational.filter(p =>
-                            (p.displayName && p.displayName.toLowerCase().includes(lowerKeyword)) ||
-                            (p.types && p.types.some(type => type.toLowerCase().includes(lowerKeyword)))
-                        );
-                        console.log(`Filtered ${operational.length} results by keyword "${keyword}"`);
-                    }
-
-                    if (operational.length === 0) {
-                        showError(`No operational restaurants found${keyword ? ` matching "${keyword}"` : ''} within the criteria.`);
-                        showView(views.search);
-                        return;
-                    }
-
-                    console.log("Found", operational.length, "operational restaurants matching criteria.");
-                    processRestaurantResults(operational, keyword); // Pass to display logic
-
-                } else {
-                    showError(`No restaurants found${keyword ? ` for "${keyword}"` : ''}. Try expanding the radius or changing criteria.`);
-                    showView(views.search);
-                }
-            } catch (error) {
-                // *** 7. Handle Errors ***
-                console.error("!!! New Places API Call Failed !!!");
-                console.error("Full error object:", error);
-                console.error("Error Name:", error.name);
-                console.error("Error Message:", error.message);
-                console.error("Error Code (if any):", error.code);
-
-                let errorMsg = `Places API Error: ${error.message || 'Unknown error'}`;
-                if(error.code) errorMsg += ` (Code: ${error.code})`;
-
-                 if (error.message && error.message.toLowerCase().includes('locationrestriction')) {
-                     errorMsg = `Places Error: Invalid location search parameters (Check location/radius). Details: ${error.message}`;
-                 } else if (error.message && error.message.toLowerCase().includes('permission') || error.name === 'ApiNotActivatedMapError') {
-                      errorMsg = `Places Error: API Permission issue. Check API key and enabled APIs in Cloud Console.`;
-                 } else if (error.message && error.message.toLowerCase().includes('quota')) {
-                      errorMsg = `Places Error: Quota exceeded. Check usage limits in Cloud Console.`;
-                 } else if (error.name === 'InvalidValueError'){
-                      errorMsg = `Places Error: Invalid value in request. Check parameters like fields, radius, location. (Details: ${error.message})`
-                 }
-
-                showError(errorMsg);
-                showView(views.search);
-            }
+        function performNearbySearch(coords, radius, keyword, priceLevel) {
+            const placesService = new google.maps.places.PlacesService(document.createElement('div'));
+            let request = { location: new google.maps.LatLng(coords.lat, coords.lng), radius, type: 'restaurant' };
+            if (keyword) request.keyword = keyword;
+            if (priceLevel) { const price = parseInt(priceLevel); request.minPriceLevel = price; request.maxPriceLevel = price; }
+            console.log("Places Request:", request);
+            placesService.nearbySearch(request, (results, status) => {
+                console.log("Places Status:", status);
+                if (status === google.maps.places.PlacesServiceStatus.OK && results?.length > 0) {
+                    const operational = results.filter(p => p.business_status === 'OPERATIONAL').slice(0, 20);
+                    if (operational.length === 0) { showError(`No operational restaurants found.`); showView(views.search); return; }
+                    console.log("Found", operational.length, "operational restaurants.");
+                    processRestaurantResults(operational, keyword);
+                } else if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) { showError(`No restaurants found${keyword ? ` for "${keyword}"` : ''}.`); showView(views.search); }
+                 else { showError(`Places Error: ${status}`); showView(views.search); }
+            });
         }
-
-
-        // *** Helper to construct photo URL (Remains the same) ***
-        function getPhotoUrl(photoName, maxWidth = 600) {
-            if (!photoName || !apiKey) return null;
-            // Format: https://places.googleapis.com/v1/{NAME}/media?key=API_KEY&maxHeightPx=...
-            return `https://places.googleapis.com/v1/${photoName}/media?key=${apiKey}&maxWidthPx=${maxWidth}`;
+        function getPlaceDetails(placeIds) {
+            const placesService = new google.maps.places.PlacesService(document.createElement('div'));
+            const promises = placeIds.map(id => new Promise(res => placesService.getDetails({ placeId: id, fields: ['photos', 'name'] }, (d, s) => res({ placeId: id, photos: (s === google.maps.places.PlacesServiceStatus.OK && d?.photos) ? d.photos : [] }))));
+            return Promise.all(promises);
         }
-
-         // *** Process results (Remains largely the same) ***
-         function processRestaurantResults(results, searchKeyword) {
+        async function processRestaurantResults(results, searchKeyword) {
              try {
+                 const placeIds = results.map(r => r.place_id); const details = await getPlaceDetails(placeIds);
+                 const detailsMap = details.reduce((map, d) => { map[d.placeId] = d.photos; return map; }, {});
                  restaurants = results.map(place => {
-                     // Generate photo URLs using the new method
-                     const photoUrls = (place.photos || [])
-                         .slice(0, 5) // Limit to 5 photos
-                         .map(photo => getPhotoUrl(photo.name)) // Get URL using the helper
-                         .filter(url => url); // Filter out any nulls
-
-                     if (photoUrls.length === 0) {
-                         photoUrls.push("https://placehold.co/600x400/FF5864/white?text=No+Image"); // Placeholder
-                     }
-
-                    let displayCuisine = searchKeyword ? searchKeyword.trim().split(' ')[0].replace(/\b\w/g, l => l.toUpperCase()) : getCuisineFromTypes(place.types || []);
-                     if (displayCuisine.toLowerCase() === 'restaurant' && searchKeyword) {
-                         displayCuisine = searchKeyword.trim().replace(/\b\w/g, l => l.toUpperCase());
-                     }
-
-                    // Map PriceLevel enum back to number (0-4)
-                    let priceLevelNum = 0;
-                    const priceMapReverse = { "PRICE_LEVEL_INEXPENSIVE": 1, "PRICE_LEVEL_MODERATE": 2, "PRICE_LEVEL_EXPENSIVE": 3, "PRICE_LEVEL_VERY_EXPENSIVE": 4 };
-                    if(place.priceLevel && priceMapReverse[place.priceLevel]) {
-                        priceLevelNum = priceMapReverse[place.priceLevel];
-                    }
-
-                     return {
-                         id: place.id,
-                         name: place.displayName || "Unnamed Restaurant",
-                         address: place.formattedAddress || "Address unavailable",
-                         cuisine: displayCuisine,
-                         rating: place.rating ? `${place.rating.toFixed(1)}★ (${place.userRatingCount || 0})` : "Not rated",
-                         priceLevel: priceLevelNum,
-                         photoUrls: photoUrls,
-                         currentPhotoIndex: 0
-                     };
+                     const placePhotos = detailsMap[place.place_id] || place.photos || [];
+                     const photoUrls = placePhotos.slice(0, 5).map(p => p.getUrl ? p.getUrl({ maxWidth: 600 }) : null).filter(url => url);
+                     if (photoUrls.length === 0) { photoUrls.push("https://placehold.co/600x400/FF5864/white?text=No+Image"); }
+                     let displayCuisine = searchKeyword ? searchKeyword.trim().toLowerCase().replace(/\b\w/g, l => l.toUpperCase()) : getCuisineFromTypes(place.types || []);
+                     return { id: place.place_id, name: place.name || "Unnamed", address: place.vicinity || "Address unavailable", cuisine: displayCuisine, rating: place.rating ? `${place.rating}★ (${place.user_ratings_total || 0})` : "Not rated", priceLevel: place.price_level ?? 0, photoUrls, currentPhotoIndex: 0 };
                  });
-
-                 if (restaurants.length === 0) {
-                     showError('No restaurants match the criteria after processing.');
-                     showView(views.search);
-                     return;
-                 }
-
-                 sessionId = generateSessionId();
-                 saveSessionToFirebase();
-                 currentIndex = 0;
-                 likedRestaurants = {};
-                 updateRestaurantDisplay();
-                 showView(views.swipe);
-
-             } catch (error) {
-                 console.error("Error processing new API results:", error);
-                 showError("Error loading restaurant details.");
-                 showView(views.search);
-             }
+                 if (restaurants.length === 0) { showError('No restaurants found.'); showView(views.search); return; }
+                 sessionId = generateSessionId(); saveSessionToFirebase();
+                 currentIndex = 0; likedRestaurants = {};
+                 updateRestaurantDisplay(); showView(views.swipe);
+             } catch (error) { console.error("Error processing results:", error); showError("Error loading details."); showView(views.search); }
          }
-
-        // --- Get Cuisine From Types (No changes needed) ---
         function getCuisineFromTypes(types) { const typeMap={'cafe':'Cafe','bar':'Bar','bakery':'Bakery'}; const knownCuisines=["Italian","Chinese","Japanese","Mexican","Indian","Thai","American","French","Vietnamese","Korean","Mediterranean","Pizza","Sushi","Seafood","Steakhouse"]; for(const type of types){ const fmt=type.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase()); if(knownCuisines.includes(fmt))return fmt; if(typeMap[type])return typeMap[type]; } return types.includes('restaurant')?'Restaurant':'Food'; }
-
-        // --- Create Google Maps Link (No changes needed) ---
         function createGoogleMapsLink(restaurant) { if (!restaurant) return null; let url; if (restaurant.id) { url = `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${restaurant.id}`; } else if (restaurant.name && restaurant.address) { const query = encodeURIComponent(`${restaurant.name}, ${restaurant.address}`); url = `https://www.google.com/maps/search/?api=1&query=${query}`; } else { return null; } const link = document.createElement('a'); link.href = url; link.textContent = "View on Google Maps ↗"; link.className = "google-maps-link"; link.target = "_blank"; link.rel = "noopener noreferrer"; return link; }
 
-        // --- Swipe UI Functions (No changes needed) ---
+        // --- Swipe UI Functions ---
         function updateRestaurantDisplay() {
             if (currentIndex >= restaurants.length) { showResultsView(); return; }
             const restaurant = restaurants[currentIndex];
             swipeUI.currentIndex.textContent = currentIndex + 1; swipeUI.totalRestaurants.textContent = restaurants.length;
-            restaurant.currentPhotoIndex = restaurant.currentPhotoIndex || 0;
-            swipeUI.image.src = restaurant.photoUrls[restaurant.currentPhotoIndex] || "https://placehold.co/600x400/cccccc/ffffff?text=Error+Loading"; ;
-            swipeUI.image.alt = restaurant.name;
+            restaurant.currentPhotoIndex = restaurant.currentPhotoIndex || 0; swipeUI.image.src = restaurant.photoUrls[restaurant.currentPhotoIndex]; swipeUI.image.alt = restaurant.name;
             swipeUI.photoIndicators.innerHTML = ''; restaurant.photoUrls.forEach((_, index) => { const dot = document.createElement('span'); dot.className = 'photo-dot' + (index === restaurant.currentPhotoIndex ? ' active' : ''); swipeUI.photoIndicators.appendChild(dot); });
             const showNav = restaurant.photoUrls.length > 1; swipeUI.prevPhotoBtn.style.display = showNav ? 'flex' : 'none'; swipeUI.nextPhotoBtn.style.display = showNav ? 'flex' : 'none'; swipeUI.photoIndicators.style.display = showNav ? 'flex' : 'none';
             swipeUI.name.textContent = restaurant.name; swipeUI.cuisine.textContent = `Cuisine: ${restaurant.cuisine}`; swipeUI.rating.textContent = `Rating: ${restaurant.rating}`; swipeUI.price.textContent = `Price: ${restaurant.priceLevel > 0 ? '$'.repeat(restaurant.priceLevel) : 'N/A'}`; swipeUI.address.textContent = `Address: ${restaurant.address}`;
@@ -526,7 +345,7 @@
              else { showResultsView(); }
         }
 
-        // --- Results & Matching Functions (No changes needed) ---
+        // --- Results & Matching Functions ---
         function showResultsView() {
             const likedCount = Object.keys(likedRestaurants).length;
             resultsUI.likedCount.textContent = likedCount;
@@ -554,7 +373,7 @@
             const friendCode = resultsUI.friendCodeInput.value.trim().toUpperCase();
             if (!friendCode) { showError('Please enter your friend\'s code.'); return; }
             if (friendCode === sessionId) { showError('You cannot match with your own code!'); return; }
-            setLoadingText("Finding matches...");
+            setLoadingText("Finding matches..."); // Update loading text
             showView(views.loading); hideError();
             if (typeof firebase === 'undefined' || !firebase.apps.length) { console.warn("Firebase not init."); showError("Matching unavailable."); setTimeout(() => { displayMatches([]); showView(views.matches); }, 1500); return; }
             firebase.database().ref('sessions/' + friendCode).once('value').then(snap => {
@@ -563,18 +382,8 @@
                 const friendLikes=friendData.likes||{}; const friendLikedIds=Object.keys(friendLikes); const myLikedIds=Object.keys(likedRestaurants);
                 const matchedIds=myLikedIds.filter(id=>friendLikedIds.includes(id));
                 const friendRestaurantsData=friendData.restaurants||[]; const friendMap=friendRestaurantsData.reduce((map,r)=>{map[r.id]=r;return map;},{});
-                const myMap=restaurants.reduce((map,r)=>{map[r.id]=r;return map;},{});
-                const matchedRestaurants=matchedIds.map(id => {
-                    const friendDetails = friendMap[id];
-                    const myDetails = myMap[id];
-                    const details = friendDetails || myDetails;
-                    if (details && friendDetails?.photoUrls && friendDetails.photoUrls.length > 0) {
-                        details.photoUrls = friendDetails.photoUrls;
-                    } else if (details && myDetails?.photoUrls) {
-                        details.photoUrls = myDetails.photoUrls;
-                    }
-                    return details;
-                }).filter(r=>r);
+                const myMap=restaurants.reduce((map,r)=>{map[r.id]=r;return map;},{}); // Use current session data as fallback
+                const matchedRestaurants=matchedIds.map(id=>friendMap[id]||myMap[id]).filter(r=>r); // Get details, ensuring photos are available from friendMap
                 console.log("Matches found:", matchedRestaurants); displayMatches(matchedRestaurants);
             }).catch(err => { console.error("Match error:", err); showError('Could not get friend data.'); showView(views.results); });
         }
@@ -588,23 +397,15 @@
         }
         function createRestaurantItemElement(r, container) {
             const item = document.createElement('div'); item.className = 'restaurant-item';
-            const imageUrl = (r?.photoUrls && r.photoUrls.length > 0 && r.photoUrls[0]) ? r.photoUrls[0] : "https://placehold.co/300x150/cccccc/ffffff?text=No+Image";
-            const priceDisplay = r?.priceLevel > 0 ? '$'.repeat(r.priceLevel) : 'N/A';
-            item.innerHTML = `<img src="${imageUrl}" alt="${r?.name || 'Restaurant'}" class="liked-item-image">
-                              <div class="restaurant-item-content">
-                                  <h3>${r?.name || 'Unnamed Restaurant'}</h3>
-                                  <p>Cuisine: ${r?.cuisine || 'N/A'}</p>
-                                  <p>Rating: ${r?.rating || 'N/A'}</p>
-                                  <p class="price-level">Price: ${priceDisplay}</p>
-                                  <p>Address: ${r?.address || 'N/A'}</p>
-                              </div>`;
+            const imageUrl = (r.photoUrls && r.photoUrls.length > 0) ? r.photoUrls[0] : "https://placehold.co/300x150/cccccc/ffffff?text=No+Image";
+            const priceDisplay = r.priceLevel > 0 ? '$'.repeat(r.priceLevel) : 'N/A';
+            item.innerHTML = `<img src="${imageUrl}" alt="${r.name}" class="liked-item-image"><div class="restaurant-item-content"><h3>${r.name}</h3><p>Cuisine: ${r.cuisine}</p><p>Rating: ${r.rating}</p><p class="price-level">Price: ${priceDisplay}</p><p>Address: ${r.address}</p></div>`;
             const contentDiv = item.querySelector('.restaurant-item-content');
             if(contentDiv){ const mapsLink = createGoogleMapsLink(r); if (mapsLink) { contentDiv.appendChild(mapsLink); } }
             container.appendChild(item);
         }
 
-
-        // --- Sharing Functions (No changes needed) ---
+        // --- Sharing Functions ---
         function generateShareLink() {
             if (!sessionId) { resultsUI.shareLinkInput.value = 'Error: No session ID.'; resultsUI.copyLinkButton.disabled = true; return; }
             const baseUrl = window.location.origin + window.location.pathname; const shareUrl = `${baseUrl}?share=${sessionId}`;
@@ -622,18 +423,7 @@
                  if (!sessionData) { showError(`Shared list "${sharedSessionId}" not found or has expired.`); sharedUI.list.innerHTML = `<p class="error-message">Shared list "${sharedSessionId}" not found or has expired.</p>`; showView(views.shared); return; }
                  const sharedLikes = sessionData.likes || {}; const sharedLikedIds = Object.keys(sharedLikes); const sharedRestaurants = sessionData.restaurants || [];
                  if (sharedLikedIds.length === 0 || sharedRestaurants.length === 0) { sharedUI.list.innerHTML = '<p style="text-align:center; padding:20px;">This shared list is empty.</p>'; showView(views.shared); return; }
-                 const likedRestaurantDetails = sharedRestaurants
-                    .filter(r => r && sharedLikedIds.includes(r.id))
-                    .map(r => ({
-                        id: r.id,
-                        name: r.name || "Unnamed Restaurant",
-                        address: r.address || "Address unavailable",
-                        cuisine: r.cuisine || "N/A",
-                        rating: r.rating || "N/A",
-                        priceLevel: r.priceLevel || 0,
-                        photoUrls: r.photoUrls && r.photoUrls.length > 0 ? [r.photoUrls[0]] : ["https://placehold.co/300x150/cccccc/ffffff?text=No+Image"]
-                    }));
-
+                 const likedRestaurantDetails = sharedRestaurants.filter(r => sharedLikedIds.includes(r.id));
                  displaySharedRestaurants(likedRestaurantDetails);
              } catch (error) { console.error("Error fetching shared session:", error); showError("Could not load the shared list."); sharedUI.list.innerHTML = `<p class="error-message">Could not load the shared list.</p>`; showView(views.shared); }
          }
@@ -645,7 +435,7 @@
             sharedUI.sourceText.textContent = `Viewing a shared list`; showView(views.shared);
          }
 
-        // --- Firebase Integration (No changes needed) ---
+        // --- Firebase Integration ---
         function generateSessionId() { return Math.random().toString(36).substring(2, 10).toUpperCase(); }
         function saveSessionToFirebase() {
             if(typeof firebase==='undefined'||!firebase.apps.length||!sessionId)return;
@@ -658,16 +448,15 @@
             firebase.database().ref('sessions/'+sessionId+'/likes').set(likedRestaurants).then(() => console.log("Likes updated for:", sessionId)).catch(e=>console.error("Likes update error:",e));
         }
         function initializeFirebase() {
-            // Keep your Firebase config
             if(typeof firebase==='undefined'||typeof firebase.initializeApp==='undefined'){console.warn("Firebase SDK not ready.");return;}
             try{
-                 const cfg={apiKey:"AIzaSyDauSN6vXVeflYHYdx54hIsXWeTxp-CarM",authDomain:"restaurant-finder-36e61.firebaseapp.com",databaseURL:"https://restaurant-finder-36e61-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"restaurant-finder-36e61",storageBucket:"restaurant-finder-36e61.appspot.com",messagingSenderId:"266887715200",appId:"1:266887715200:web:6c68d924d7596cdfb44965",measurementId:"G-TD5GNXZZMN"}; // KEEP YOUR CONFIG
+                 const cfg={apiKey:"AIzaSyDauSN6vXVeflYHYdx54hIsXWeTxp-CarM",authDomain:"restaurant-finder-36e61.firebaseapp.com",databaseURL:"https://restaurant-finder-36e61-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"restaurant-finder-36e61",storageBucket:"restaurant-finder-36e61.appspot.com",messagingSenderId:"266887715200",appId:"1:266887715200:web:6c68d924d7596cdfb44965",measurementId:"G-TD5GNXZZMN"};
                  if (!firebase.apps.length) {firebase.initializeApp(cfg);console.log("Firebase initialized.");}
                  else {console.log("Firebase already initialized.");}
             }catch(e){console.error("Firebase init error:",e);showError("Sharing unavailable."); resultsUI.findMatchesButton.disabled = true; resultsUI.copyCodeButton.disabled = true; resultsUI.copyLinkButton.disabled = true;}
         }
 
-        // --- Utility & Event Listeners (No changes needed) ---
+        // --- Utility & Event Listeners ---
         function resetApp() {
             locationInput.value=''; radiusSelect.value='2000'; priceLevelSelect.value=''; cuisineKeywordInput.value=''; resultsUI.friendCodeInput.value='';
             restaurants=[]; currentIndex=0; likedRestaurants={}; sessionId=''; userCoordinates=null;
@@ -676,8 +465,9 @@
             resultsUI.shareLinkInput.value = ''; resultsUI.copyLinkButton.disabled = true;
             matchesUI.list.innerHTML = ''; sharedUI.list.innerHTML = '';
             hideError();
+            // Ensure URL is cleaned up if resetting from a shared link view
             if (window.location.search.includes('share=')) {
-                window.history.replaceState({}, document.title, window.location.pathname);
+                window.history.replaceState({}, document.title, window.location.pathname); // Remove query param
             }
             showView(views.search); console.log("App reset.");
         }
@@ -688,7 +478,7 @@
 
         window.swipeUI = swipeUI; window.resultsUI = resultsUI; window.matchesUI = matchesUI; window.sharedUI = sharedUI;
 
-        // --- Event Listeners (No changes needed) ---
+        // --- Event Listeners ---
         searchForm.addEventListener('submit', (e) => { e.preventDefault(); fetchRestaurants(); });
         useLocationButton.addEventListener('click', getUserLocation);
         swipeUI.prevPhotoBtn.addEventListener('click', () => changePhoto(-1));
@@ -705,51 +495,60 @@
         sharedUI.startOverButton.addEventListener('click', resetApp);
 
 
-        // --- Initialization (No major changes needed) ---
+        // --- Initialization (CORRECTED) ---
         document.addEventListener('DOMContentLoaded', () => {
             console.log("DOM loaded.");
 
-            loadGoogleMapsScript(); // Load standard channel
+            // *** ALWAYS load Maps and initialize Firebase ***
+            loadGoogleMapsScript();
+            // Initialize Firebase slightly deferred to ensure SDKs load, but always run it
             setTimeout(initializeFirebase, 500);
 
+            // *** Check for share parameter AFTER starting initializations ***
             const urlParams = new URLSearchParams(window.location.search);
             const shareId = urlParams.get('share');
 
             if (shareId) {
+                // If share ID exists, prepare to handle it after Firebase is ready.
+                // Show loading view immediately while waiting for Firebase.
                 setLoadingText("Loading shared list...");
-                showView(views.loading);
+                showView(views.loading); // Show loading early
 
-                const checkFirebaseReady = () => {
+                const firebaseInitInterval = setInterval(() => {
+                    // Check if Firebase is initialized
                     if (typeof firebase !== 'undefined' && firebase.apps.length > 0 && firebase.database()) {
+                        clearInterval(firebaseInitInterval);
                         console.log("Firebase ready, handling shared link...");
-                        handleSharedLink(shareId);
-                    } else {
-                        console.log("Firebase not ready yet for shared link, checking again...");
-                        setTimeout(checkFirebaseReady, 200);
+                        handleSharedLink(shareId); // Handle the link AFTER Firebase is ready
                     }
-                };
+                    // Add a check for potential Firebase init errors that might stop loading
+                    // This check might need refinement depending on how initializeFirebase reports errors
+                    // For now, relies on the timeout as primary failure detection.
 
-                const firebaseTimeout = setTimeout(() => {
-                    if (currentVisibleView === views.loading || currentVisibleView !== views.shared) {
+                 }, 150); // Check slightly less frequently
+
+                 // Timeout safeguard in case Firebase never loads/initializes
+                 setTimeout(() => {
+                      // Check if we are still stuck on loading or haven't transitioned to shared view
+                      if(currentVisibleView === views.loading || currentVisibleView !== views.shared){
+                         clearInterval(firebaseInitInterval);
                          console.error("Timeout waiting for Firebase initialization for shared link.");
-                         showError("Failed to initialize services to load shared list.");
-                         resetApp();
-                    }
-                }, 10000);
-
-                setTimeout(() => {
-                    checkFirebaseReady();
-                }, 100);
-
+                         showError("Failed to initialize services to load shared list in time.");
+                         // Decide on a fallback view - Resetting is usually safest
+                         resetApp(); // Reset state and show search view
+                      }
+                 }, 10000); // 10 second timeout
 
             } else {
+                // Normal startup sequence: Just show the search view
+                // Maps and Firebase are already being initialized above.
                 showView(views.search);
             }
         });
 
     </script>
 
-    <!-- Firebase SDKs (Keep these) -->
+    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js" defer></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js" defer></script>
 
