@@ -229,12 +229,13 @@
         function hideError() { errorContainer.classList.add('hidden'); errorContainer.textContent = ''; }
         function setLoadingText(text) { loadingText.textContent = text; }
 
-        // --- Google Maps & Places API Functions (NEW API) ---
+        // --- Google Maps & Places API Functions (NEW API Approach) ---
         function loadGoogleMapsScript() {
             if (document.getElementById('google-maps-script')) return;
             const script = document.createElement('script'); script.id = 'google-maps-script';
             if (!apiKey || apiKey.startsWith("YOUR_") || apiKey.length < 20) { console.error("Google Maps API Key missing/invalid!"); showError("Map services not configured."); locationInput.disabled = true; useLocationButton.disabled = true; searchButton.disabled = true; return; }
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry&callback=initMapServices&v=beta`;
+            // *** Use standard weekly channel (no v=beta) ***
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry&callback=initMapServices`;
             script.async = true; script.defer = true;
             script.onerror = () => { console.error("Failed to load Google Maps script."); showError("Failed to load location services."); };
             document.head.appendChild(script);
@@ -249,6 +250,7 @@
              initAutocomplete();
         };
         function initAutocomplete() {
+             // Autocomplete setup remains the same
              if (!google.maps.places.Autocomplete) { console.error("Autocomplete library not ready."); showError("Location search failed."); return; }
             try {
                 autocomplete = new google.maps.places.Autocomplete(locationInput, { types: ['geocode', 'establishment'], fields: ['geometry', 'name', 'formatted_address', 'place_id'], componentRestrictions: { country: [] } });
@@ -261,6 +263,7 @@
             } catch (error) { console.error("Error initializing Autocomplete:", error); showError("Failed to init location search."); }
         }
         function getUserLocation() {
+             // Geolocation remains the same
              if (!navigator.geolocation) { showError("Geolocation not supported."); return; }
              const btn = useLocationButton; btn.textContent = "Finding..."; btn.disabled = true; hideError();
              navigator.geolocation.getCurrentPosition( (pos) => {
@@ -272,6 +275,7 @@
              }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
          }
         function fetchRestaurants() {
+            // fetchRestaurants logic remains the same
             setLoadingText("Finding restaurants...");
             showView(views.loading); hideError();
             const locationText = locationInput.value.trim(), radius = parseInt(radiusSelect.value), priceLevel = priceLevelSelect.value, keyword = cuisineKeywordInput.value.trim();
@@ -298,7 +302,7 @@
             }
         }
 
-        // *** Perform search using the NEW Places API ***
+        // *** Perform search using Place.searchNearby (NEW API) ***
         async function performNearbySearch(coords, radius, keyword, priceLevel) {
             if (!google.maps.places || !google.maps.places.Place) {
                  showError("Places API (New) not available.");
@@ -306,15 +310,34 @@
                  return;
             }
 
-            // Define fields to request from the New API
-            // *** CORRECTED: No 'places.' prefix needed here ***
+            // *** 1. Validate Inputs ***
+            console.log("Validating inputs before building request:");
+            console.log("Received coords object:", coords);
+            console.log("Received radius value:", radius);
+            const lat = Number(coords?.lat);
+            const lng = Number(coords?.lng);
+            const numericRadius = Number(radius);
+
+            if (isNaN(lat) || isNaN(lng)) {
+                 console.error(`Invalid coordinates: lat=${lat}, lng=${lng}`);
+                 showError(`Invalid coordinates provided.`);
+                 showView(views.search); return;
+            }
+            if (isNaN(numericRadius) || numericRadius <= 0) {
+                 console.error(`Invalid radius: ${numericRadius}`);
+                 showError("Invalid distance/radius value.");
+                 showView(views.search); return;
+            }
+            console.log(`Validated coords: lat=${lat}, lng=${lng}. Validated radius: ${numericRadius}`);
+
+            // *** 2. Define Request Fields (Corrected - no prefixes) ***
             const fields = [
                 'id', 'displayName', 'formattedAddress', 'types',
                 'rating', 'userRatingCount', 'priceLevel',
                 'businessStatus', 'photos'
             ];
 
-            // Map numeric price level to New API PriceLevel enums
+            // *** 3. Prepare Price Level Filter ***
             const priceLevels = [];
             if (priceLevel) {
                 const level = parseInt(priceLevel);
@@ -324,31 +347,39 @@
                 }
             }
 
+            // *** 4. Build the Request Object (Corrected Structure) ***
             const request = {
+                // Use validated inputs
                 locationRestriction: {
                     circle: {
-                        center: coords,
-                        radius: radius
+                        center: { lat: lat, lng: lng }, // Use LatLngLiteral
+                        radius: numericRadius
                     }
                 },
-                maxResultCount: 20,
+                // No 'includedTypes' here for JS SDK searchNearby
                 fields: fields,
+                maxResultCount: 20, // Limit results
                 language: 'en',
             };
 
+            // Add price level filter if applicable
             if (priceLevels.length > 0) {
                 request.priceLevels = priceLevels;
             }
 
-            console.log("New Places API Request:", request);
+            console.log("Final New Places API Request Object:", request);
 
+            // *** 5. Make the API Call ***
             try {
                 const { places } = await google.maps.places.Place.searchNearby(request);
                 console.log("New Places API Response Raw:", places);
 
+                // *** 6. Process Results ***
                 if (places && places.length > 0) {
+                    // Filter for operational status
                     let operational = places.filter(p => p.businessStatus === 'OPERATIONAL');
 
+                    // Filter by keyword (client-side)
                     if (keyword) {
                         const lowerKeyword = keyword.toLowerCase();
                         operational = operational.filter(p =>
@@ -365,43 +396,58 @@
                     }
 
                     console.log("Found", operational.length, "operational restaurants matching criteria.");
-                    processRestaurantResults(operational, keyword);
+                    processRestaurantResults(operational, keyword); // Pass to display logic
 
                 } else {
                     showError(`No restaurants found${keyword ? ` for "${keyword}"` : ''}. Try expanding the radius or changing criteria.`);
                     showView(views.search);
                 }
             } catch (error) {
-                console.error("New Places API Error:", error);
-                let errorMsg = `Places Error: ${error.message || 'Unknown error'}`;
-                 if(error.code) errorMsg += ` (Code: ${error.code})`;
-                 // Specific check for InvalidValueError related to locationRestriction
-                 if (error.message && error.message.includes('locationRestriction')) {
-                     errorMsg = `Places Error: in property locationRestriction: ${error.message}`;
+                // *** 7. Handle Errors ***
+                console.error("!!! New Places API Call Failed !!!");
+                console.error("Full error object:", error);
+                console.error("Error Name:", error.name);
+                console.error("Error Message:", error.message);
+                console.error("Error Code (if any):", error.code);
+
+                let errorMsg = `Places API Error: ${error.message || 'Unknown error'}`;
+                if(error.code) errorMsg += ` (Code: ${error.code})`;
+
+                 if (error.message && error.message.toLowerCase().includes('locationrestriction')) {
+                     errorMsg = `Places Error: Invalid location search parameters (Check location/radius). Details: ${error.message}`;
+                 } else if (error.message && error.message.toLowerCase().includes('permission') || error.name === 'ApiNotActivatedMapError') {
+                      errorMsg = `Places Error: API Permission issue. Check API key and enabled APIs in Cloud Console.`;
+                 } else if (error.message && error.message.toLowerCase().includes('quota')) {
+                      errorMsg = `Places Error: Quota exceeded. Check usage limits in Cloud Console.`;
+                 } else if (error.name === 'InvalidValueError'){
+                      errorMsg = `Places Error: Invalid value in request. Check parameters like fields, radius, location. (Details: ${error.message})`
                  }
+
                 showError(errorMsg);
                 showView(views.search);
             }
         }
 
 
-        // *** Helper to construct photo URL from photo resource name ***
+        // *** Helper to construct photo URL (Remains the same) ***
         function getPhotoUrl(photoName, maxWidth = 600) {
             if (!photoName || !apiKey) return null;
+            // Format: https://places.googleapis.com/v1/{NAME}/media?key=API_KEY&maxHeightPx=...
             return `https://places.googleapis.com/v1/${photoName}/media?key=${apiKey}&maxWidthPx=${maxWidth}`;
         }
 
-         // *** Process results from the NEW API response ***
+         // *** Process results (Remains largely the same) ***
          function processRestaurantResults(results, searchKeyword) {
              try {
                  restaurants = results.map(place => {
+                     // Generate photo URLs using the new method
                      const photoUrls = (place.photos || [])
-                         .slice(0, 5)
-                         .map(photo => getPhotoUrl(photo.name))
-                         .filter(url => url);
+                         .slice(0, 5) // Limit to 5 photos
+                         .map(photo => getPhotoUrl(photo.name)) // Get URL using the helper
+                         .filter(url => url); // Filter out any nulls
 
                      if (photoUrls.length === 0) {
-                         photoUrls.push("https://placehold.co/600x400/FF5864/white?text=No+Image");
+                         photoUrls.push("https://placehold.co/600x400/FF5864/white?text=No+Image"); // Placeholder
                      }
 
                     let displayCuisine = searchKeyword ? searchKeyword.trim().split(' ')[0].replace(/\b\w/g, l => l.toUpperCase()) : getCuisineFromTypes(place.types || []);
@@ -409,6 +455,7 @@
                          displayCuisine = searchKeyword.trim().replace(/\b\w/g, l => l.toUpperCase());
                      }
 
+                    // Map PriceLevel enum back to number (0-4)
                     let priceLevelNum = 0;
                     const priceMapReverse = { "PRICE_LEVEL_INEXPENSIVE": 1, "PRICE_LEVEL_MODERATE": 2, "PRICE_LEVEL_EXPENSIVE": 3, "PRICE_LEVEL_VERY_EXPENSIVE": 4 };
                     if(place.priceLevel && priceMapReverse[place.priceLevel]) {
@@ -662,7 +709,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             console.log("DOM loaded.");
 
-            loadGoogleMapsScript();
+            loadGoogleMapsScript(); // Load standard channel
             setTimeout(initializeFirebase, 500);
 
             const urlParams = new URLSearchParams(window.location.search);
