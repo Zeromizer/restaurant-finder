@@ -325,15 +325,16 @@
             }
 
             const request = {
-            locationRestriction: {
-                circle: {
-                    center: coords,
-                    radius: radius
-                }
-            }
-                includedTypes: ['restaurant'],
+                locationRestriction: {
+                    circle: {
+                        center: coords,
+                        radius: radius
+                    }
+                },
+                // Instead of 'includedTypes', try using 'types' or check the latest API documentation
+                types: ['restaurant'],  // or the correct property according to the latest API
                 maxResultCount: 20,
-                fields: fields, // Use the corrected fields array
+                fields: fields,
                 language: 'en',
             };
 
