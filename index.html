@@ -233,11 +233,8 @@
         function loadGoogleMapsScript() {
             if (document.getElementById('google-maps-script')) return;
             const script = document.createElement('script'); script.id = 'google-maps-script';
-            // No changes needed here, keep your API key
             if (!apiKey || apiKey.startsWith("YOUR_") || apiKey.length < 20) { console.error("Google Maps API Key missing/invalid!"); showError("Map services not configured."); locationInput.disabled = true; useLocationButton.disabled = true; searchButton.disabled = true; return; }
-            // Load core Maps JS API. Places library (legacy) is not strictly needed, but Autocomplete still uses it.
-            // The *new* Places functionality is accessed via google.maps.places.Place
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry&callback=initMapServices&v=beta`; // Using beta channel potentially for newer features
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry&callback=initMapServices&v=beta`;
             script.async = true; script.defer = true;
             script.onerror = () => { console.error("Failed to load Google Maps script."); showError("Failed to load location services."); };
             document.head.appendChild(script);
@@ -249,10 +246,9 @@
                  showError("Failed to initialize location services.");
                  return;
              }
-             initAutocomplete(); // Autocomplete still uses the 'places' library
+             initAutocomplete();
         };
         function initAutocomplete() {
-            // Autocomplete initialization remains largely the same
              if (!google.maps.places.Autocomplete) { console.error("Autocomplete library not ready."); showError("Location search failed."); return; }
             try {
                 autocomplete = new google.maps.places.Autocomplete(locationInput, { types: ['geocode', 'establishment'], fields: ['geometry', 'name', 'formatted_address', 'place_id'], componentRestrictions: { country: [] } });
@@ -265,7 +261,6 @@
             } catch (error) { console.error("Error initializing Autocomplete:", error); showError("Failed to init location search."); }
         }
         function getUserLocation() {
-            // Geolocation remains the same
              if (!navigator.geolocation) { showError("Geolocation not supported."); return; }
              const btn = useLocationButton; btn.textContent = "Finding..."; btn.disabled = true; hideError();
              navigator.geolocation.getCurrentPosition( (pos) => {
@@ -303,7 +298,7 @@
             }
         }
 
-        // *** NEW: Perform search using the NEW Places API ***
+        // *** Perform search using the NEW Places API ***
         async function performNearbySearch(coords, radius, keyword, priceLevel) {
             if (!google.maps.places || !google.maps.places.Place) {
                  showError("Places API (New) not available.");
@@ -311,13 +306,12 @@
                  return;
             }
 
-            const latLng = new google.maps.LatLng(coords.lat, coords.lng);
-
             // Define fields to request from the New API
+            // *** CORRECTED: No 'places.' prefix needed here ***
             const fields = [
-                'id', 'displayName', 'formattedAddress', 'types', // No 'places.' prefix
-                'rating', 'userRatingCount', 'priceLevel',       // No 'places.' prefix
-                'businessStatus', 'photos'                       // No 'places.' prefix
+                'id', 'displayName', 'formattedAddress', 'types',
+                'rating', 'userRatingCount', 'priceLevel',
+                'businessStatus', 'photos'
             ];
 
             // Map numeric price level to New API PriceLevel enums
@@ -325,28 +319,25 @@
             if (priceLevel) {
                 const level = parseInt(priceLevel);
                 if (level >= 1 && level <= 4) {
-                    // Enum mapping (adjust if Google changes string values)
                     const priceMap = { 1: "PRICE_LEVEL_INEXPENSIVE", 2: "PRICE_LEVEL_MODERATE", 3: "PRICE_LEVEL_EXPENSIVE", 4: "PRICE_LEVEL_VERY_EXPENSIVE" };
                     priceLevels.push(priceMap[level]);
                 }
             }
 
             const request = {
-            locationRestriction: {
-                circle: {
-                    // Use a LatLngLiteral (plain object) instead of LatLng object instance
-                    center: { lat: coords.lat, lng: coords.lng },
-                    radius: radius // radius should be a number (which it is)
-                }
-            },
-                includedTypes: ['restaurant'], // Core type filter
-                maxResultCount: 20, // Max results to return
-                fields: fields, // Specify needed fields
-                language: 'en', // Optional: specify language
-                // rankPreference: 'DISTANCE', // Optional: Rank by distance (may require removing radius) or 'POPULARITY'
+                locationRestriction: {
+                    circle: {
+                        // *** CORRECTED: Use object literal for center ***
+                        center: { lat: coords.lat, lng: coords.lng },
+                        radius: radius
+                    }
+                },
+                includedTypes: ['restaurant'],
+                maxResultCount: 20,
+                fields: fields, // Use the corrected fields array
+                language: 'en',
             };
 
-            // Add price level filter if specified
             if (priceLevels.length > 0) {
                 request.priceLevels = priceLevels;
             }
@@ -354,17 +345,12 @@
             console.log("New Places API Request:", request);
 
             try {
-                // Use the static searchNearby method on the Place class
                 const { places } = await google.maps.places.Place.searchNearby(request);
-                 console.log("New Places API Response Raw:", places);
+                console.log("New Places API Response Raw:", places);
 
                 if (places && places.length > 0) {
-                    // Filter for operational status client-side (businessStatus might not always be filterable server-side)
                     let operational = places.filter(p => p.businessStatus === 'OPERATIONAL');
 
-                    // **Keyword Filtering (Client-Side Workaround)**
-                    // The new searchNearby doesn't have a direct 'keyword' param like the legacy one.
-                    // We filter the results based on the keyword matching name or types.
                     if (keyword) {
                         const lowerKeyword = keyword.toLowerCase();
                         operational = operational.filter(p =>
@@ -374,7 +360,6 @@
                         console.log(`Filtered ${operational.length} results by keyword "${keyword}"`);
                     }
 
-
                     if (operational.length === 0) {
                         showError(`No operational restaurants found${keyword ? ` matching "${keyword}"` : ''} within the criteria.`);
                         showView(views.search);
@@ -382,7 +367,7 @@
                     }
 
                     console.log("Found", operational.length, "operational restaurants matching criteria.");
-                    processRestaurantResults(operational, keyword); // Pass keyword for potential display logic
+                    processRestaurantResults(operational, keyword);
 
                 } else {
                     showError(`No restaurants found${keyword ? ` for "${keyword}"` : ''}. Try expanding the radius or changing criteria.`);
@@ -390,50 +375,42 @@
                 }
             } catch (error) {
                 console.error("New Places API Error:", error);
-                 // Attempt to parse potential Google API errors
                 let errorMsg = `Places Error: ${error.message || 'Unknown error'}`;
-                if (error.code) { // gRPC codes might be present
-                    errorMsg += ` (Code: ${error.code})`;
-                } else if (error instanceof Error && error.message.includes('API key')) {
-                    errorMsg = "Places Error: Invalid API Key or billing issue.";
-                }
+                 if(error.code) errorMsg += ` (Code: ${error.code})`;
+                 // Specific check for InvalidValueError related to locationRestriction
+                 if (error.message && error.message.includes('locationRestriction')) {
+                     errorMsg = `Places Error: in property locationRestriction: ${error.message}`;
+                 }
                 showError(errorMsg);
                 showView(views.search);
             }
         }
 
-        // *** REMOVED: getPlaceDetails function is no longer needed ***
 
-        // *** NEW: Helper to construct photo URL from photo resource name ***
+        // *** Helper to construct photo URL from photo resource name ***
         function getPhotoUrl(photoName, maxWidth = 600) {
             if (!photoName || !apiKey) return null;
-            // Format: https://places.googleapis.com/v1/{NAME}/media?key=API_KEY&maxHeightPx=...
             return `https://places.googleapis.com/v1/${photoName}/media?key=${apiKey}&maxWidthPx=${maxWidth}`;
         }
 
-         // *** UPDATED: Process results from the NEW API response ***
+         // *** Process results from the NEW API response ***
          function processRestaurantResults(results, searchKeyword) {
              try {
-                // No need for separate details call anymore
                  restaurants = results.map(place => {
-                     // Generate photo URLs using the new method
                      const photoUrls = (place.photos || [])
-                         .slice(0, 5) // Limit to 5 photos
-                         .map(photo => getPhotoUrl(photo.name)) // Get URL using the helper
-                         .filter(url => url); // Filter out any nulls (e.g., if photo.name was missing)
+                         .slice(0, 5)
+                         .map(photo => getPhotoUrl(photo.name))
+                         .filter(url => url);
 
                      if (photoUrls.length === 0) {
-                         photoUrls.push("https://placehold.co/600x400/FF5864/white?text=No+Image"); // Placeholder
+                         photoUrls.push("https://placehold.co/600x400/FF5864/white?text=No+Image");
                      }
 
-                    // Determine display cuisine (same logic as before, potentially using the keyword)
-                     let displayCuisine = searchKeyword ? searchKeyword.trim().split(' ')[0].replace(/\b\w/g, l => l.toUpperCase()) : getCuisineFromTypes(place.types || []);
+                    let displayCuisine = searchKeyword ? searchKeyword.trim().split(' ')[0].replace(/\b\w/g, l => l.toUpperCase()) : getCuisineFromTypes(place.types || []);
                      if (displayCuisine.toLowerCase() === 'restaurant' && searchKeyword) {
-                         displayCuisine = searchKeyword.trim().replace(/\b\w/g, l => l.toUpperCase()); // Prefer keyword if generic 'Restaurant'
+                         displayCuisine = searchKeyword.trim().replace(/\b\w/g, l => l.toUpperCase());
                      }
 
-
-                    // Map PriceLevel enum back to number (0-4)
                     let priceLevelNum = 0;
                     const priceMapReverse = { "PRICE_LEVEL_INEXPENSIVE": 1, "PRICE_LEVEL_MODERATE": 2, "PRICE_LEVEL_EXPENSIVE": 3, "PRICE_LEVEL_VERY_EXPENSIVE": 4 };
                     if(place.priceLevel && priceMapReverse[place.priceLevel]) {
@@ -441,26 +418,25 @@
                     }
 
                      return {
-                         id: place.id, // Use place.id
-                         name: place.displayName || "Unnamed Restaurant", // Use place.displayName
-                         address: place.formattedAddress || "Address unavailable", // Use place.formattedAddress
+                         id: place.id,
+                         name: place.displayName || "Unnamed Restaurant",
+                         address: place.formattedAddress || "Address unavailable",
                          cuisine: displayCuisine,
-                         rating: place.rating ? `${place.rating.toFixed(1)}★ (${place.userRatingCount || 0})` : "Not rated", // Use place.rating and userRatingCount
-                         priceLevel: priceLevelNum, // Use the mapped number
-                         photoUrls: photoUrls, // Use the generated URLs
+                         rating: place.rating ? `${place.rating.toFixed(1)}★ (${place.userRatingCount || 0})` : "Not rated",
+                         priceLevel: priceLevelNum,
+                         photoUrls: photoUrls,
                          currentPhotoIndex: 0
                      };
                  });
 
                  if (restaurants.length === 0) {
-                    // This case should ideally be caught earlier, but double-check
                      showError('No restaurants match the criteria after processing.');
                      showView(views.search);
                      return;
                  }
 
                  sessionId = generateSessionId();
-                 saveSessionToFirebase(); // Save session (structure should be compatible)
+                 saveSessionToFirebase();
                  currentIndex = 0;
                  likedRestaurants = {};
                  updateRestaurantDisplay();
@@ -476,7 +452,7 @@
         // --- Get Cuisine From Types (No changes needed) ---
         function getCuisineFromTypes(types) { const typeMap={'cafe':'Cafe','bar':'Bar','bakery':'Bakery'}; const knownCuisines=["Italian","Chinese","Japanese","Mexican","Indian","Thai","American","French","Vietnamese","Korean","Mediterranean","Pizza","Sushi","Seafood","Steakhouse"]; for(const type of types){ const fmt=type.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase()); if(knownCuisines.includes(fmt))return fmt; if(typeMap[type])return typeMap[type]; } return types.includes('restaurant')?'Restaurant':'Food'; }
 
-        // --- Create Google Maps Link (No changes needed, uses place ID) ---
+        // --- Create Google Maps Link (No changes needed) ---
         function createGoogleMapsLink(restaurant) { if (!restaurant) return null; let url; if (restaurant.id) { url = `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${restaurant.id}`; } else if (restaurant.name && restaurant.address) { const query = encodeURIComponent(`${restaurant.name}, ${restaurant.address}`); url = `https://www.google.com/maps/search/?api=1&query=${query}`; } else { return null; } const link = document.createElement('a'); link.href = url; link.textContent = "View on Google Maps ↗"; link.className = "google-maps-link"; link.target = "_blank"; link.rel = "noopener noreferrer"; return link; }
 
         // --- Swipe UI Functions (No changes needed) ---
@@ -485,7 +461,6 @@
             const restaurant = restaurants[currentIndex];
             swipeUI.currentIndex.textContent = currentIndex + 1; swipeUI.totalRestaurants.textContent = restaurants.length;
             restaurant.currentPhotoIndex = restaurant.currentPhotoIndex || 0;
-            // Ensure photo URL exists before setting
             swipeUI.image.src = restaurant.photoUrls[restaurant.currentPhotoIndex] || "https://placehold.co/600x400/cccccc/ffffff?text=Error+Loading"; ;
             swipeUI.image.alt = restaurant.name;
             swipeUI.photoIndicators.innerHTML = ''; restaurant.photoUrls.forEach((_, index) => { const dot = document.createElement('span'); dot.className = 'photo-dot' + (index === restaurant.currentPhotoIndex ? ' active' : ''); swipeUI.photoIndicators.appendChild(dot); });
@@ -543,22 +518,18 @@
                 const friendLikes=friendData.likes||{}; const friendLikedIds=Object.keys(friendLikes); const myLikedIds=Object.keys(likedRestaurants);
                 const matchedIds=myLikedIds.filter(id=>friendLikedIds.includes(id));
                 const friendRestaurantsData=friendData.restaurants||[]; const friendMap=friendRestaurantsData.reduce((map,r)=>{map[r.id]=r;return map;},{});
-                const myMap=restaurants.reduce((map,r)=>{map[r.id]=r;return map;},{}); // Use current session data as fallback
-                // Ensure photoUrls from friend's data (which might be just one URL) are used correctly
+                const myMap=restaurants.reduce((map,r)=>{map[r.id]=r;return map;},{});
                 const matchedRestaurants=matchedIds.map(id => {
                     const friendDetails = friendMap[id];
                     const myDetails = myMap[id];
-                    // Prioritize friend's details for consistency, but use my details as fallback if needed
                     const details = friendDetails || myDetails;
                     if (details && friendDetails?.photoUrls && friendDetails.photoUrls.length > 0) {
-                        // Ensure we use the friend's photo if available (might only be one saved)
                         details.photoUrls = friendDetails.photoUrls;
                     } else if (details && myDetails?.photoUrls) {
-                        // Fallback to my photos if friend's weren't saved/available
                         details.photoUrls = myDetails.photoUrls;
                     }
                     return details;
-                }).filter(r=>r); // Filter out any nulls if ID wasn't found in either map
+                }).filter(r=>r);
                 console.log("Matches found:", matchedRestaurants); displayMatches(matchedRestaurants);
             }).catch(err => { console.error("Match error:", err); showError('Could not get friend data.'); showView(views.results); });
         }
@@ -571,7 +542,6 @@
             showView(views.matches);
         }
         function createRestaurantItemElement(r, container) {
-             // Handles potential missing fields gracefully
             const item = document.createElement('div'); item.className = 'restaurant-item';
             const imageUrl = (r?.photoUrls && r.photoUrls.length > 0 && r.photoUrls[0]) ? r.photoUrls[0] : "https://placehold.co/300x150/cccccc/ffffff?text=No+Image";
             const priceDisplay = r?.priceLevel > 0 ? '$'.repeat(r.priceLevel) : 'N/A';
@@ -607,17 +577,15 @@
                  if (!sessionData) { showError(`Shared list "${sharedSessionId}" not found or has expired.`); sharedUI.list.innerHTML = `<p class="error-message">Shared list "${sharedSessionId}" not found or has expired.</p>`; showView(views.shared); return; }
                  const sharedLikes = sessionData.likes || {}; const sharedLikedIds = Object.keys(sharedLikes); const sharedRestaurants = sessionData.restaurants || [];
                  if (sharedLikedIds.length === 0 || sharedRestaurants.length === 0) { sharedUI.list.innerHTML = '<p style="text-align:center; padding:20px;">This shared list is empty.</p>'; showView(views.shared); return; }
-                 // Ensure the restaurants retrieved from Firebase have the necessary fields for display
                  const likedRestaurantDetails = sharedRestaurants
-                    .filter(r => r && sharedLikedIds.includes(r.id)) // Filter valid restaurants liked by the sharer
-                    .map(r => ({ // Re-map to ensure structure consistency for createRestaurantItemElement
+                    .filter(r => r && sharedLikedIds.includes(r.id))
+                    .map(r => ({
                         id: r.id,
                         name: r.name || "Unnamed Restaurant",
                         address: r.address || "Address unavailable",
                         cuisine: r.cuisine || "N/A",
                         rating: r.rating || "N/A",
                         priceLevel: r.priceLevel || 0,
-                        // IMPORTANT: Firebase only stores the *first* photoUrl. Use it.
                         photoUrls: r.photoUrls && r.photoUrls.length > 0 ? [r.photoUrls[0]] : ["https://placehold.co/300x150/cccccc/ffffff?text=No+Image"]
                     }));
 
@@ -632,13 +600,12 @@
             sharedUI.sourceText.textContent = `Viewing a shared list`; showView(views.shared);
          }
 
-        // --- Firebase Integration (No changes needed, structure saved is compatible) ---
+        // --- Firebase Integration (No changes needed) ---
         function generateSessionId() { return Math.random().toString(36).substring(2, 10).toUpperCase(); }
         function saveSessionToFirebase() {
             if(typeof firebase==='undefined'||!firebase.apps.length||!sessionId)return;
-            // Save only the *first* photo URL to Firebase to keep data size down
             const restaurantsToSave = restaurants.map(r => ({ id: r.id, name: r.name, address: r.address, cuisine: r.cuisine, rating: r.rating, priceLevel: r.priceLevel, photoUrls: (r.photoUrls && r.photoUrls.length > 0) ? [r.photoUrls[0]] : [] }));
-            const sessionData = { restaurants: restaurantsToSave, timestamp: firebase.database.ServerValue.TIMESTAMP, likes: {} }; // Likes start empty, saved separately
+            const sessionData = { restaurants: restaurantsToSave, timestamp: firebase.database.ServerValue.TIMESTAMP, likes: {} };
             firebase.database().ref('sessions/'+sessionId).set(sessionData).then(() => console.log("Session saved:", sessionId)).catch(e=>console.error("Session save error:",e));
         }
         function saveLikesToFirebase() {
@@ -693,12 +660,12 @@
         sharedUI.startOverButton.addEventListener('click', resetApp);
 
 
-        // --- Initialization (No major changes needed, logic handles share link correctly) ---
+        // --- Initialization (No major changes needed) ---
         document.addEventListener('DOMContentLoaded', () => {
             console.log("DOM loaded.");
 
-            loadGoogleMapsScript(); // Start loading Google Maps script immediately
-            setTimeout(initializeFirebase, 500); // Initialize Firebase slightly deferred
+            loadGoogleMapsScript();
+            setTimeout(initializeFirebase, 500);
 
             const urlParams = new URLSearchParams(window.location.search);
             const shareId = urlParams.get('share');
@@ -713,30 +680,24 @@
                         handleSharedLink(shareId);
                     } else {
                         console.log("Firebase not ready yet for shared link, checking again...");
-                        setTimeout(checkFirebaseReady, 200); // Check again shortly
+                        setTimeout(checkFirebaseReady, 200);
                     }
                 };
 
-                 // Timeout safeguard
                 const firebaseTimeout = setTimeout(() => {
                     if (currentVisibleView === views.loading || currentVisibleView !== views.shared) {
                          console.error("Timeout waiting for Firebase initialization for shared link.");
                          showError("Failed to initialize services to load shared list.");
-                         resetApp(); // Reset if stuck
+                         resetApp();
                     }
-                }, 10000); // 10 second timeout
+                }, 10000);
 
-                // Start checking process after a short delay
                 setTimeout(() => {
                     checkFirebaseReady();
-                    // Clear timeout if successful loading occurs within handleSharedLink/displaySharedRestaurants
-                    // Need a way to clear it... perhaps clear it when showView(views.shared) is called?
-                    // For simplicity, let it run; it only resets if still loading after 10s.
                 }, 100);
 
 
             } else {
-                // Normal startup
                 showView(views.search);
             }
         });
