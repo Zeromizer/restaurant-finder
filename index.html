@@ -120,6 +120,9 @@
         .review-date { color: #888; margin-left: 5px; font-size: 12px; }
         .review-type { font-size: 11px; background-color: #f0f0f0; padding: 2px 5px; border-radius: 3px; color: #666; margin-left: 5px; }
         .review-text { font-size: 12px; color: #666; line-height: 1.4; margin-bottom: 5px; }
+        .review-text.truncated { cursor: pointer; position: relative; }
+        .review-text.truncated:after { content: "⋯ Read more"; color: #4285F4; font-style: italic; display: inline; }
+        .review-text.expanded { white-space: pre-line; }
         .more-reviews { font-size: 12px; color: #4285F4; margin-top: 5px; text-align: right; font-style: italic; }
 
         /* Image padding for proper display */
@@ -133,6 +136,42 @@
             max-height: 100%;
         }
 
+        /* --- New Restaurant Sticker --- */
+        .new-sticker {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: #FF3B30;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: bold;
+            transform: rotate(5deg);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            z-index: 10;
+            animation: pulse-bounce 2s infinite;
+        }
+        
+        .restaurant-item .new-sticker {
+            top: 5px;
+            right: 5px;
+            font-size: 11px;
+            padding: 4px 8px;
+        }
+        
+        /* Animation for NEW sticker */
+        @keyframes pulse-bounce {
+            0% { transform: rotate(5deg) scale(1); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+            20% { transform: rotate(5deg) scale(1.1); box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
+            30% { transform: rotate(5deg) scale(1); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+            40% { transform: rotate(5deg) scale(1.1); box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
+            50% { transform: rotate(5deg) scale(1); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+            70% { transform: rotate(5deg) translateY(-3px); box-shadow: 0 5px 8px rgba(0,0,0,0.3); }
+            80% { transform: rotate(5deg) translateY(0); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+            100% { transform: rotate(5deg) scale(1); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        }
+
     </style>
 </head>
 <body>
@@ -141,7 +180,7 @@
 
         <!-- Search View -->
         <div id="search-view" class="view">
-            <div class="header"> <h1>Restaurant Matcher</h1> <p>Find restaurants to enjoy with friends</p> </div>
+            <div class="header"> <h1>Restaurant Matcher</h1> <p>Find food places to enjoy with friends</p> </div>
             <form id="search-form" class="search-form">
                  <div class="form-group">
                     <label for="location">Location</label>
@@ -151,22 +190,26 @@
                  <div class="form-group"> <label for="radius">Distance (km)</label> <select id="radius" name="radius"> <option value="1000">1 km</option> <option value="2000" selected>2 km</option> <option value="5000">5 km</option> <option value="10000">10 km</option> <option value="20000">20 km</option> </select> </div>
                  <div class="form-group"> <label for="price-level">Price Level</label> <select id="price-level" name="price-level"> <option value="">Any</option> <option value="1">$ (Inexpensive)</option> <option value="2">$$ (Moderate)</option> <option value="3">$$$ (Expensive)</option> <option value="4">$$$$ (Very Expensive)</option> </select> </div>
                  <div class="form-group">
-                    <label for="cuisine-keyword">Cuisine or Specific Dish (Optional)</label>
-                    <input type="text" id="cuisine-keyword" name="cuisine-keyword" placeholder="e.g., Italian, Pizza, Laksa, Cafe">
+                    <label for="cuisine-keyword">Cuisine, Specific Dish or Place Type (Optional)</label>
+                    <input type="text" id="cuisine-keyword" name="cuisine-keyword" placeholder="e.g., Italian, Pizza, Cafe, Hawker, Food Court">
                  </div>
-                <button type="submit" class="button" id="search-button">Find Restaurants</button>
+                 <div class="form-group" style="display: flex; align-items: center;">
+                    <input type="checkbox" id="high-rating-filter" name="high-rating-filter" style="width: auto; height: auto; margin-right: 10px;">
+                    <label for="high-rating-filter" style="display: inline; margin: 0;">Show only highly-rated places (4.5+ stars)</label>
+                 </div>
+                <button type="submit" class="button" id="search-button">Find Food Places</button>
             </form>
         </div>
 
         <!-- Loading View -->
-        <div id="loading-view" class="view transition-hidden"> <div class="loading"><div class="spinner"></div><p id="loading-text">Finding restaurants...</p></div> </div>
+        <div id="loading-view" class="view transition-hidden"> <div class="loading"><div class="spinner"></div><p id="loading-text">Finding food places...</p></div> </div>
 
         <!-- Swipe View -->
-        <div id="swipe-view" class="view transition-hidden"> <div class="header"> <h1>Find Your Match</h1> <p>Restaurant <span id="current-index">1</span> of <span id="total-restaurants">?</span></p> </div> <div class="card"> <div class="photo-container"> <img class="card-img" id="restaurant-image" src="..." alt="Restaurant"> <div class="photo-nav"> <button id="prev-photo" class="photo-nav-btn">❮</button> <div id="photo-indicators"></div> <button id="next-photo" class="photo-nav-btn">❯</button> </div> </div> <div class="card-content"> <h2 class="card-title" id="restaurant-name">...</h2> <p class="card-info" id="restaurant-cuisine">...</p> <p class="card-info" id="restaurant-rating">...</p> <p class="card-info" id="restaurant-price">...</p> <p class="card-info" id="restaurant-address">...</p> <div id="google-maps-link-placeholder"></div> </div> <div class="card-actions"> <div class="action-button dislike-button" id="dislike-button">❌</div> <div class="action-button like-button" id="like-button">❤️</div> </div> </div> </div>
+        <div id="swipe-view" class="view transition-hidden"> <div class="header"> <h1>Find Your Match</h1> <p>Food Place <span id="current-index">1</span> of <span id="total-restaurants">?</span></p> </div> <div class="card"> <div class="photo-container"> <img class="card-img" id="restaurant-image" src="..." alt="Restaurant"> <div class="photo-nav"> <button id="prev-photo" class="photo-nav-btn">❮</button> <div id="photo-indicators"></div> <button id="next-photo" class="photo-nav-btn">❯</button> </div> </div> <div class="card-content"> <h2 class="card-title" id="restaurant-name">...</h2> <p class="card-info" id="restaurant-cuisine">...</p> <p class="card-info" id="restaurant-rating">...</p> <p class="card-info" id="restaurant-price">...</p> <p class="card-info" id="restaurant-address">...</p> <div id="google-maps-link-placeholder"></div> </div> <div class="card-actions"> <div class="action-button dislike-button" id="dislike-button">❌</div> <div class="action-button like-button" id="like-button">❤️</div> </div> </div> </div>
 
         <!-- Results View -->
         <div id="results-view" class="view transition-hidden">
-            <div class="header"> <h1>Your Results</h1> <p>You liked <span id="liked-count">0</span> restaurant(s)</p> </div>
+            <div class="header"> <h1>Your Results</h1> <p>You liked <span id="liked-count">0</span> food place(s)</p> </div>
             <div class="search-form">
                  <!-- Session Code -->
                  <p style="text-align:center; margin-bottom:5px;">Share this code for matching:</p>
@@ -186,7 +229,7 @@
                  </div>
 
                  <!-- View Liked / Start Over -->
-                 <button type="button" class="button secondary" id="view-liked-button" style="margin-top: 15px;">View My Liked Restaurants</button>
+                 <button type="button" class="button secondary" id="view-liked-button" style="margin-top: 15px;">View My Liked Food Places</button>
                  <button class="button tertiary" id="start-over-button" style="margin-top:15px;">Start Over</button>
              </div>
 
@@ -197,14 +240,14 @@
 
         <!-- Matches View -->
         <div id="matches-view" class="view transition-hidden">
-            <div class="header"> <h1>Your Matches!</h1> <p>Restaurants you both liked</p> </div>
+            <div class="header"> <h1>Your Matches!</h1> <p>Food places you both liked</p> </div>
             <div id="matches-list" class="restaurant-list"> <!-- Content will be generated --> </div>
             <button class="button" id="matches-start-over-button" style="margin-top:20px;">Start Over</button>
         </div>
 
         <!-- Shared View -->
         <div id="shared-view" class="view transition-hidden">
-             <div class="header"> <h1>Shared Restaurant List</h1> <p id="shared-list-source">List from a friend</p> </div>
+             <div class="header"> <h1>Shared Food Places</h1> <p id="shared-list-source">List from a friend</p> </div>
              <div id="shared-restaurants-list" class="restaurant-list">
                  <p style="text-align:center; padding: 20px;">Loading shared list...</p>
                  <!-- Shared restaurants will be populated here -->
@@ -224,6 +267,7 @@
         const radiusSelect = document.getElementById('radius');
         const priceLevelSelect = document.getElementById('price-level');
         const cuisineKeywordInput = document.getElementById('cuisine-keyword');
+        const highRatingFilter = document.getElementById('high-rating-filter');
         const searchButton = document.getElementById('search-button');
         const loadingText = document.getElementById('loading-text');
         const swipeUI = { currentIndex: document.getElementById('current-index'), totalRestaurants: document.getElementById('total-restaurants'), image: document.getElementById('restaurant-image'), name: document.getElementById('restaurant-name'), cuisine: document.getElementById('restaurant-cuisine'), rating: document.getElementById('restaurant-rating'), price: document.getElementById('restaurant-price'), address: document.getElementById('restaurant-address'), prevPhotoBtn: document.getElementById('prev-photo'), nextPhotoBtn: document.getElementById('next-photo'), photoIndicators: document.getElementById('photo-indicators'), dislikeButton: document.getElementById('dislike-button'), likeButton: document.getElementById('like-button'), mapsLinkPlaceholder: document.getElementById('google-maps-link-placeholder') };
@@ -286,7 +330,11 @@
              }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
          }
         function fetchRestaurants() {
-            setLoadingText("Finding restaurants..."); // Reset loading text
+            let loadingMessage = "Finding food places...";
+            if (highRatingFilter.checked) {
+                loadingMessage = "Finding highly-rated food places...";
+            }
+            setLoadingText(loadingMessage);
             showView(views.loading); hideError();
             const locationText = locationInput.value.trim(), radius = parseInt(radiusSelect.value), priceLevel = priceLevelSelect.value, keyword = cuisineKeywordInput.value.trim();
             if (typeof google === 'undefined' || !google.maps?.places) { showError("Location services not ready."); showView(views.search); return; }
@@ -303,26 +351,115 @@
         }
         function performNearbySearch(coords, radius, keyword, priceLevel) {
             const placesService = new google.maps.places.PlacesService(document.createElement('div'));
-            let request = { location: new google.maps.LatLng(coords.lat, coords.lng), radius, type: 'restaurant' };
+            
+            // Create an array of types to search for - restaurant, cafe, food, etc.
+            const establishmentTypes = ['restaurant', 'cafe', 'meal_takeaway', 'meal_delivery', 'bakery', 'food'];
+            
+            // Create an array of promises to hold all the different search requests
+            const searchPromises = establishmentTypes.map(type => {
+                return new Promise(resolve => {
+                    let request = {
+                        location: new google.maps.LatLng(coords.lat, coords.lng),
+                        radius: radius,
+                        type: type
+                    };
             if (keyword) request.keyword = keyword;
-            if (priceLevel) { const price = parseInt(priceLevel); request.minPriceLevel = price; request.maxPriceLevel = price; }
-            console.log("Places Request:", request);
+                    if (priceLevel) {
+                        const price = parseInt(priceLevel);
+                        request.minPriceLevel = price;
+                        request.maxPriceLevel = price;
+                    }
+                    
+                    console.log(`Places Request for ${type}:`, request);
+                    
             placesService.nearbySearch(request, (results, status) => {
-                console.log("Places Status:", status);
+                        console.log(`Places Status for ${type}:`, status);
+                        if (status === google.maps.places.PlacesServiceStatus.OK && results?.length > 0) {
+                            resolve(results);
+                        } else {
+                            resolve([]); // Return empty array if no results or error
+                        }
+                    });
+                });
+            });
+            
+            // Additional keyword search for hawker centers, food courts, etc.
+            const keywordPromise = new Promise(resolve => {
+                if (!keyword || keyword.toLowerCase().includes('hawker') || keyword.toLowerCase().includes('food court')) {
+                    // Only add this search if no specific keyword is provided or if looking for hawkers
+                    const hawkerRequest = {
+                        location: new google.maps.LatLng(coords.lat, coords.lng),
+                        radius: radius,
+                        keyword: keyword || 'hawker center food court'
+                    };
+                    
+                    if (priceLevel) {
+                        const price = parseInt(priceLevel);
+                        hawkerRequest.minPriceLevel = price;
+                        hawkerRequest.maxPriceLevel = price;
+                    }
+                    
+                    console.log("Hawker Center Request:", hawkerRequest);
+                    
+                    placesService.nearbySearch(hawkerRequest, (results, status) => {
+                        console.log("Hawker Center Status:", status);
                 if (status === google.maps.places.PlacesServiceStatus.OK && results?.length > 0) {
-                    const operational = results.filter(p => p.business_status === 'OPERATIONAL').slice(0, 20);
-                    if (operational.length === 0) { showError(`No operational restaurants found.`); showView(views.search); return; }
-                    console.log("Found", operational.length, "operational restaurants.");
+                            resolve(results);
+                        } else {
+                            resolve([]);
+                        }
+                    });
+                } else {
+                    resolve([]); // Skip this search if specific keyword provided
+                }
+            });
+            
+            // Combine all search promises
+            const allPromises = [...searchPromises, keywordPromise];
+            
+            // Wait for all searches to complete, then combine and deduplicate results
+            Promise.all(allPromises).then(resultsArrays => {
+                // Flatten array of arrays and remove duplicates based on place_id
+                const allPlaces = [];
+                const placeIds = new Set();
+                
+                resultsArrays.flat().forEach(place => {
+                    if (!placeIds.has(place.place_id)) {
+                        placeIds.add(place.place_id);
+                        allPlaces.push(place);
+                    }
+                });
+                
+                console.log("Total unique places found:", allPlaces.length);
+                
+                if (allPlaces.length > 0) {
+                    const operational = allPlaces.filter(p => p.business_status === 'OPERATIONAL').slice(0, 20);
+                    if (operational.length === 0) {
+                        showError(`No operational food establishments found.`);
+                        showView(views.search);
+                        return;
+                    }
+                    console.log("Found", operational.length, "operational food establishments.");
                     processRestaurantResults(operational, keyword);
-                } else if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) { showError(`No restaurants found${keyword ? ` for "${keyword}"` : ''}.`); showView(views.search); }
-                 else { showError(`Places Error: ${status}`); showView(views.search); }
+                } else {
+                    showError(`No food establishments found${keyword ? ` for "${keyword}"` : ''}.`);
+                    showView(views.search);
+                }
+            }).catch(error => {
+                console.error("Error in searches:", error);
+                showError("Error searching for food establishments.");
+                showView(views.search);
             });
         }
         function getPlaceDetails(placeIds) {
             const placesService = new google.maps.places.PlacesService(document.createElement('div'));
             const promises = placeIds.map(id => new Promise(res => placesService.getDetails({ 
                 placeId: id, 
-                fields: ['photos', 'name', 'reviews'],
+                fields: [
+                    'photos', 'name', 'reviews', 'opening_hours', 
+                    'utc_offset_minutes', 'business_status', 
+                    'user_ratings_total', 'website', 'formatted_phone_number'
+                ],
                 reviews_sort: 'relevance' // Request reviews sorted by relevance first
             }, (d, s) => {
                 // Process reviews if available
@@ -340,10 +477,77 @@
                     reviews = [mostRelevant, ...otherReviews.slice(0, 2)];
                 }
                 
+                // Check if the place is new (3 months or less)
+                // We need to analyze all reviews and additional signals to determine if the place is truly new
+                let isNew = false;
+                
+                if (s === google.maps.places.PlacesServiceStatus.OK) {
+                    // Multiple signals to check if a restaurant is new
+                    
+                    // 1. Review count - new places typically have few reviews
+                    const fewReviews = d.user_ratings_total && d.user_ratings_total < 15;
+                    
+                    // 2. Review dates - check if all reviews are recent
+                    let allReviewsRecent = false;
+                    if (d.reviews && d.reviews.length > 0) {
+                        // Sort all reviews by date (oldest first)
+                        const sortedReviews = [...d.reviews].sort((a, b) => 
+                            new Date(a.time * 1000) - new Date(b.time * 1000)
+                        );
+                        
+                        // Get the oldest review date
+                        const oldestReviewDate = new Date(sortedReviews[0].time * 1000);
+                        const threeMonthsAgo = new Date();
+                        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+                        
+                        // Check if oldest review is less than 3 months old
+                        allReviewsRecent = oldestReviewDate > threeMonthsAgo;
+                        
+                        // 3. Review text analysis - look for clues
+                        const reviewText = d.reviews.map(r => r.text || '').join(' ').toLowerCase();
+                        
+                        // Phrases that suggest the place is NOT new
+                        const notNewPhrases = [
+                            'been here for years', 'been open for years', 'old favorite', 
+                            'long time', 'year ago', 'years ago', 'was here last year', 
+                            'returned after', 'used to be', 'always been', 'regular',
+                            'again', 'back to', 'still good', 'still great', 'still the best',
+                            'as usual', 'as always'
+                        ];
+                        
+                        // Phrases that suggest the place IS new
+                        const newPhrases = [
+                            'just opened', 'newly opened', 'new place', 'new restaurant', 
+                            'new opening', 'recent opening', 'grand opening', 'soft opening',
+                            'opening week', 'first week', 'first day', 'first customers'
+                        ];
+                        
+                        const hasNotNewPhrase = notNewPhrases.some(phrase => reviewText.includes(phrase));
+                        const hasNewPhrase = newPhrases.some(phrase => reviewText.includes(phrase));
+                        
+                        // If we have strong signals in the review text, override other factors
+                        if (hasNotNewPhrase) {
+                            isNew = false;
+                        } else if (hasNewPhrase) {
+                            isNew = true;
+                        } else {
+                            // 4. Combine signals - only mark as new if both conditions are met
+                            isNew = fewReviews && allReviewsRecent;
+                        }
+                    } else {
+                        // No reviews might mean it's very new
+                        isNew = true;
+                    }
+                    
+                    // Business status check - OPERATIONAL doesn't tell us much about age
+                    // Most places don't have their opening date in the API
+                }
+                
                 res({ 
                     placeId: id, 
                     photos: (s === google.maps.places.PlacesServiceStatus.OK && d?.photos) ? d.photos : [],
-                    reviews: reviews
+                    reviews: reviews,
+                    isNew: isNew
                 });
             })));
             return Promise.all(promises);
@@ -354,12 +558,13 @@
                  const detailsMap = details.reduce((map, d) => { 
                      map[d.placeId] = {
                          photos: d.photos || [],
-                         reviews: d.reviews || []
+                         reviews: d.reviews || [],
+                         isNew: d.isNew
                      }; 
                      return map; 
                  }, {});
                  restaurants = results.map(place => {
-                     const placeDetails = detailsMap[place.place_id] || { photos: [], reviews: [] };
+                     const placeDetails = detailsMap[place.place_id] || { photos: [], reviews: [], isNew: false };
                      const placePhotos = placeDetails.photos;
                      const photoUrls = placePhotos.slice(0, 5).map(p => p.getUrl ? p.getUrl({ maxWidth: 800, maxHeight: 600 }) : null).filter(url => url);
                      if (photoUrls.length === 0) { photoUrls.push("https://placehold.co/800x600/FF5864/white?text=No+Image"); }
@@ -370,19 +575,43 @@
                          address: place.vicinity || "Address unavailable", 
                          cuisine: displayCuisine, 
                          rating: place.rating ? `${place.rating}★ (${place.user_ratings_total || 0})` : "Not rated", 
+                         ratingValue: place.rating || 0, // Add actual numeric rating for filtering
                          priceLevel: place.price_level ?? 0, 
                          photoUrls, 
                          currentPhotoIndex: 0,
-                         reviews: placeDetails.reviews || []
+                         reviews: placeDetails.reviews || [],
+                         isNew: placeDetails.isNew || false
                      };
                  });
-                 if (restaurants.length === 0) { showError('No restaurants found.'); showView(views.search); return; }
+                 
+                 // Filter by high rating if the option is checked
+                 if (highRatingFilter.checked) {
+                     restaurants = restaurants.filter(place => place.ratingValue >= 4.5);
+                 }
+                 
+                 if (restaurants.length === 0) { showError('No food places found matching your criteria.'); showView(views.search); return; }
                  sessionId = generateSessionId(); saveSessionToFirebase();
                  currentIndex = 0; likedRestaurants = {};
                  updateRestaurantDisplay(); showView(views.swipe);
              } catch (error) { console.error("Error processing results:", error); showError("Error loading details."); showView(views.search); }
          }
-        function getCuisineFromTypes(types) { const typeMap={'cafe':'Cafe','bar':'Bar','bakery':'Bakery'}; const knownCuisines=["Italian","Chinese","Japanese","Mexican","Indian","Thai","American","French","Vietnamese","Korean","Mediterranean","Pizza","Sushi","Seafood","Steakhouse"]; for(const type of types){ const fmt=type.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase()); if(knownCuisines.includes(fmt))return fmt; if(typeMap[type])return typeMap[type]; } return types.includes('restaurant')?'Restaurant':'Food'; }
+        function getCuisineFromTypes(types) { 
+            const typeMap = {
+                'cafe': 'Cafe',
+                'bar': 'Bar',
+                'bakery': 'Bakery',
+                'food': 'Food Stall',
+                'meal_takeaway': 'Takeaway',
+                'meal_delivery': 'Delivery'
+            }; 
+            const knownCuisines = ["Italian", "Chinese", "Japanese", "Mexican", "Indian", "Thai", "American", "French", "Vietnamese", "Korean", "Mediterranean", "Pizza", "Sushi", "Seafood", "Steakhouse"]; 
+            for(const type of types){ 
+                const fmt = type.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase()); 
+                if(knownCuisines.includes(fmt)) return fmt; 
+                if(typeMap[type]) return typeMap[type]; 
+            } 
+            return types.includes('restaurant') ? 'Restaurant' : (types.includes('cafe') ? 'Cafe' : 'Food Place'); 
+        }
         function createGoogleMapsLink(restaurant) { if (!restaurant) return null; let url; if (restaurant.id) { url = `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${restaurant.id}`; } else if (restaurant.name && restaurant.address) { const query = encodeURIComponent(`${restaurant.name}, ${restaurant.address}`); url = `https://www.google.com/maps/search/?api=1&query=${query}`; } else { return null; } const link = document.createElement('a'); link.href = url; link.textContent = "View on Google Maps ↗"; link.className = "google-maps-link"; link.target = "_blank"; link.rel = "noopener noreferrer"; return link; }
 
         // --- Swipe UI Functions ---
@@ -395,6 +624,20 @@
             const showNav = restaurant.photoUrls.length > 1; swipeUI.prevPhotoBtn.style.display = showNav ? 'flex' : 'none'; swipeUI.nextPhotoBtn.style.display = showNav ? 'flex' : 'none'; swipeUI.photoIndicators.style.display = showNav ? 'flex' : 'none';
             swipeUI.name.textContent = restaurant.name; swipeUI.cuisine.textContent = `Cuisine: ${restaurant.cuisine}`; swipeUI.rating.textContent = `Rating: ${restaurant.rating}`; swipeUI.price.textContent = `Price: ${restaurant.priceLevel > 0 ? '$'.repeat(restaurant.priceLevel) : 'N/A'}`; swipeUI.address.textContent = `Address: ${restaurant.address}`;
             swipeUI.mapsLinkPlaceholder.innerHTML = ''; const mapsLink = createGoogleMapsLink(restaurant); if (mapsLink) swipeUI.mapsLinkPlaceholder.appendChild(mapsLink);
+            
+            // Add NEW sticker if restaurant is new
+            const photoContainer = document.querySelector('.photo-container');
+            const existingSticker = photoContainer.querySelector('.new-sticker');
+            if (existingSticker) {
+                photoContainer.removeChild(existingSticker);
+            }
+            
+            if (restaurant.isNew) {
+                const newSticker = document.createElement('div');
+                newSticker.className = 'new-sticker';
+                newSticker.textContent = 'NEWLY OPENED';
+                photoContainer.appendChild(newSticker);
+            }
             
             // Add reviews
             if (restaurant.reviews && restaurant.reviews.length > 0) {
@@ -429,7 +672,32 @@
                     
                     const textDiv = document.createElement('div');
                     textDiv.className = 'review-text';
-                    textDiv.textContent = review.text || 'No review text';
+                    
+                    // Handle long reviews with truncation and expansion
+                    const fullText = review.text || 'No review text';
+                    const isTruncated = fullText.length > 100;
+                    
+                    if (isTruncated) {
+                        // Add truncated class and store full text as data attribute
+                        textDiv.className = 'review-text truncated';
+                        textDiv.setAttribute('data-full-text', fullText);
+                        textDiv.textContent = fullText.substring(0, 100);
+                        
+                        // Add click handler to expand
+                        textDiv.addEventListener('click', function() {
+                            if (this.classList.contains('truncated')) {
+                                this.textContent = this.getAttribute('data-full-text');
+                                this.classList.remove('truncated');
+                                this.classList.add('expanded');
+                            } else {
+                                this.textContent = this.getAttribute('data-full-text').substring(0, 100);
+                                this.classList.remove('expanded');
+                                this.classList.add('truncated');
+                            }
+                        });
+                    } else {
+                        textDiv.textContent = fullText;
+                    }
                     
                     reviewElement.appendChild(authorDiv);
                     reviewElement.appendChild(textDiv);
@@ -466,7 +734,7 @@
             resultsUI.friendCodeInput.value = '';
             populateLikedRestaurantsList();
             resultsUI.likedListContainer.classList.add('hidden');
-            resultsUI.viewLikedButton.textContent = 'View My Liked Restaurants';
+            resultsUI.viewLikedButton.textContent = 'View My Liked Food Places';
             resultsUI.viewLikedButton.style.display = likedCount > 0 ? 'block' : 'none';
             generateShareLink();
             resultsUI.shareLinkSection.style.display = likedCount > 0 ? 'block' : 'none';
@@ -478,9 +746,9 @@
             const myLikedIds = Object.keys(likedRestaurants);
             const likedRestaurantDetails = restaurants.filter(r => myLikedIds.includes(r.id));
             if (likedRestaurantDetails.length > 0) {
-                 const listTitle = document.createElement('h3'); listTitle.style.padding = '15px 15px 0 15px'; listTitle.style.marginBottom = '10px'; listTitle.textContent = "Your Liked Restaurants:"; listTitle.style.textAlign = 'center'; likedListContainer.appendChild(listTitle);
+                 const listTitle = document.createElement('h3'); listTitle.style.padding = '15px 15px 0 15px'; listTitle.style.marginBottom = '10px'; listTitle.textContent = "Your Liked Food Places:"; listTitle.style.textAlign = 'center'; likedListContainer.appendChild(listTitle);
                 likedRestaurantDetails.forEach(r => { createRestaurantItemElement(r, likedListContainer); });
-            } else { likedListContainer.innerHTML = '<p style="text-align:center; padding:20px;">You haven\'t liked any restaurants yet.</p>'; }
+            } else { likedListContainer.innerHTML = '<p style="text-align:center; padding:20px;">You haven\'t liked any food places yet.</p>'; }
         }
         function findMatches() {
             const friendCode = resultsUI.friendCodeInput.value.trim().toUpperCase();
@@ -513,8 +781,8 @@
             const imageUrl = (r.photoUrls && r.photoUrls.length > 0) ? r.photoUrls[0] : "https://placehold.co/300x150/cccccc/ffffff?text=No+Image";
             const priceDisplay = r.priceLevel > 0 ? '$'.repeat(r.priceLevel) : 'N/A';
             
-            // Create the basic structure
-            item.innerHTML = `<img src="${imageUrl}" alt="${r.name}" class="liked-item-image"><div class="restaurant-item-content"><h3>${r.name}</h3><p>Cuisine: ${r.cuisine}</p><p>Rating: ${r.rating}</p><p class="price-level">Price: ${priceDisplay}</p><p>Address: ${r.address}</p></div>`;
+            // Create the basic structure with image container for position reference
+            item.innerHTML = `<div style="position: relative;"><img src="${imageUrl}" alt="${r.name}" class="liked-item-image">${r.isNew ? '<div class="new-sticker">NEWLY OPENED</div>' : ''}</div><div class="restaurant-item-content"><h3>${r.name}</h3><p>Cuisine: ${r.cuisine}</p><p>Rating: ${r.rating}</p><p class="price-level">Price: ${priceDisplay}</p><p>Address: ${r.address}</p></div>`;
             
             const contentDiv = item.querySelector('.restaurant-item-content');
             if(contentDiv){ 
@@ -542,14 +810,38 @@
                     
                     const reviewText = document.createElement('div');
                     reviewText.className = 'review-text';
-                    reviewText.textContent = review.text ? (review.text.length > 100 ? review.text.substring(0, 100) + '...' : review.text) : 'No review text';
+                    
+                    // Handle long reviews with truncation and expansion
+                    const fullText = review.text || 'No review text';
+                    const isTruncated = fullText.length > 100;
+                    
+                    if (isTruncated) {
+                        // Add truncated class and store full text as data attribute
+                        reviewText.className = 'review-text truncated';
+                        reviewText.setAttribute('data-full-text', fullText);
+                        reviewText.textContent = fullText.substring(0, 100);
+                        
+                        // Add click handler to expand
+                        reviewText.addEventListener('click', function() {
+                            if (this.classList.contains('truncated')) {
+                                this.textContent = this.getAttribute('data-full-text');
+                                this.classList.remove('truncated');
+                                this.classList.add('expanded');
+                            } else {
+                                this.textContent = this.getAttribute('data-full-text').substring(0, 100);
+                                this.classList.remove('expanded');
+                                this.classList.add('truncated');
+                            }
+                        });
+                    } else {
+                        reviewText.textContent = fullText;
+                    }
                     
                     reviewDiv.appendChild(reviewHeader);
                     reviewDiv.appendChild(reviewText);
                     contentDiv.appendChild(reviewDiv);
                 }
             }
-            
             container.appendChild(item);
         }
 
@@ -595,7 +887,8 @@
                 rating: r.rating, 
                 priceLevel: r.priceLevel, 
                 photoUrls: (r.photoUrls && r.photoUrls.length > 0) ? [r.photoUrls[0]] : [],
-                reviews: r.reviews || []
+                reviews: r.reviews || [],
+                isNew: r.isNew || false
             }));
             const sessionData = { restaurants: restaurantsToSave, timestamp: firebase.database.ServerValue.TIMESTAMP, likes: {} };
             firebase.database().ref('sessions/'+sessionId).set(sessionData).then(() => console.log("Session saved:", sessionId)).catch(e=>console.error("Session save error:",e));
@@ -616,9 +909,10 @@
         // --- Utility & Event Listeners ---
         function resetApp() {
             locationInput.value=''; radiusSelect.value='2000'; priceLevelSelect.value=''; cuisineKeywordInput.value=''; resultsUI.friendCodeInput.value='';
+            highRatingFilter.checked = false; // Reset the high-rating filter
             restaurants=[]; currentIndex=0; likedRestaurants={}; sessionId=''; userCoordinates=null;
             resultsUI.likedListContainer.innerHTML = ''; resultsUI.likedListContainer.classList.add('hidden');
-            resultsUI.viewLikedButton.textContent = 'View My Liked Restaurants';
+            resultsUI.viewLikedButton.textContent = 'View My Liked Food Places';
             resultsUI.shareLinkInput.value = ''; resultsUI.copyLinkButton.disabled = true;
             matchesUI.list.innerHTML = ''; sharedUI.list.innerHTML = '';
             hideError();
@@ -646,13 +940,12 @@
         resultsUI.startOverButton.addEventListener('click', resetApp);
         resultsUI.copyCodeButton.addEventListener('click', copySessionId);
         resultsUI.sessionId.addEventListener('click', () => { if (resultsUI.sessionId.textContent !== 'CODE') { window.getSelection().selectAllChildren(resultsUI.sessionId); }});
-        resultsUI.viewLikedButton.addEventListener('click', () => { const isHidden = resultsUI.likedListContainer.classList.toggle('hidden'); resultsUI.viewLikedButton.textContent = isHidden ? 'View My Liked Restaurants' : 'Hide My Liked Restaurants'; });
+        resultsUI.viewLikedButton.addEventListener('click', () => { const isHidden = resultsUI.likedListContainer.classList.toggle('hidden'); resultsUI.viewLikedButton.textContent = isHidden ? 'View My Liked Food Places' : 'Hide My Liked Food Places'; });
         resultsUI.copyLinkButton.addEventListener('click', copyShareLink);
         matchesUI.startOverButton.addEventListener('click', resetApp);
         sharedUI.startOverButton.addEventListener('click', resetApp);
 
-
-        // --- Initialization (CORRECTED) ---
+        // --- Initialization ---
         document.addEventListener('DOMContentLoaded', () => {
             console.log("DOM loaded.");
 
@@ -678,10 +971,6 @@
                         console.log("Firebase ready, handling shared link...");
                         handleSharedLink(shareId); // Handle the link AFTER Firebase is ready
                     }
-                    // Add a check for potential Firebase init errors that might stop loading
-                    // This check might need refinement depending on how initializeFirebase reports errors
-                    // For now, relies on the timeout as primary failure detection.
-
                  }, 150); // Check slightly less frequently
 
                  // Timeout safeguard in case Firebase never loads/initializes
@@ -702,7 +991,6 @@
                 showView(views.search);
             }
         });
-
     </script>
 
     <!-- Firebase SDKs -->
