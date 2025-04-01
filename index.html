@@ -105,6 +105,29 @@
         .price-level { color: #27ae60; font-weight: 500; }
         .restaurant-item .google-maps-link { font-size: 12px; padding: 3px 8px; margin-top: 5px; }
 
+        /* Travel time styles */
+        .travel-times {
+            margin-top: 8px;
+            padding-top: 5px;
+            border-top: 1px dashed #eee;
+            font-size: 12px;
+            color: #555;
+            margin-bottom: 10px; /* Reduce space after travel times */
+        }
+        .travel-time-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+        .travel-time-icon {
+            margin-right: 6px;
+            font-size: 14px;
+        }
+        .travel-time-loading {
+            color: #777;
+            font-style: italic;
+        }
+
         /* --- Google Places Autocomplete --- */
         .pac-container { font-family: Arial, sans-serif; border-radius: 4px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2); z-index: 1000 !important; }
         .pac-item { padding: 10px; cursor: pointer; font-size: 15px; }
@@ -112,17 +135,33 @@
         .pac-item-query { font-weight: 500; }
 
         /* --- Review Styles --- */
-        .restaurant-reviews { margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee; }
-        .reviews-title { font-size: 16px; margin-bottom: 8px; color: #333; }
-        .review-item { padding: 8px 0; }
-        .review-author { display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 13px; }
+        .restaurant-reviews {
+            margin-top: 10px; /* Reduced from default */
+        }
+        .reviews-title {
+            margin-top: 0; /* Remove top margin */
+            margin-bottom: 8px;
+            font-size: 16px;
+            color: #333;
+            padding-top: 5px;
+            border-top: 1px dashed #eee;
+        }
+        .review-item { 
+            padding: 5px 0; /* Reduced padding */
+        }
+        .review-author { 
+            display: flex; 
+            justify-content: space-between; 
+            margin-bottom: 2px; /* Reduced margin */
+            font-size: 13px; 
+        }
         .review-author span { color: #FFA534; }
-        .review-date { color: #888; margin-left: 5px; font-size: 12px; }
-        .review-type { font-size: 11px; background-color: #f0f0f0; padding: 2px 5px; border-radius: 3px; color: #666; margin-left: 5px; }
-        .review-text { font-size: 12px; color: #666; line-height: 1.4; margin-bottom: 5px; }
+        .review-date { color: #888; font-size: 12px; }
+        .review-text { font-size: 13px; line-height: 1.4; white-space: pre-line; color: #555; }
         .review-text.truncated { cursor: pointer; position: relative; }
         .review-text.truncated:after { content: "⋯ Read more"; color: #4285F4; font-style: italic; display: inline; }
         .review-text.expanded { white-space: pre-line; }
+        .review-type { font-size: 11px; background-color: #f0f0f0; color: #666; padding: 1px 4px; border-radius: 3px; margin-left: 5px; }
         .more-reviews { font-size: 12px; color: #4285F4; margin-top: 5px; text-align: right; font-style: italic; }
 
         /* Image padding for proper display */
@@ -197,6 +236,10 @@
                     <input type="checkbox" id="high-rating-filter" name="high-rating-filter" style="width: auto; height: auto; margin-right: 10px;">
                     <label for="high-rating-filter" style="display: inline; margin: 0;">Show only highly-rated places (4.5+ stars)</label>
                  </div>
+                 <div class="form-group" style="display: flex; align-items: center;">
+                    <input type="checkbox" id="popular-places-filter" name="popular-places-filter" style="width: auto; height: auto; margin-right: 10px;">
+                    <label for="popular-places-filter" style="display: inline; margin: 0;">Show only popular places (4.2+ stars with 100+ reviews)</label>
+                 </div>
                 <button type="submit" class="button" id="search-button">Find Food Places</button>
             </form>
         </div>
@@ -268,6 +311,7 @@
         const priceLevelSelect = document.getElementById('price-level');
         const cuisineKeywordInput = document.getElementById('cuisine-keyword');
         const highRatingFilter = document.getElementById('high-rating-filter');
+        const popularPlacesFilter = document.getElementById('popular-places-filter');
         const searchButton = document.getElementById('search-button');
         const loadingText = document.getElementById('loading-text');
         const swipeUI = { currentIndex: document.getElementById('current-index'), totalRestaurants: document.getElementById('total-restaurants'), image: document.getElementById('restaurant-image'), name: document.getElementById('restaurant-name'), cuisine: document.getElementById('restaurant-cuisine'), rating: document.getElementById('restaurant-rating'), price: document.getElementById('restaurant-price'), address: document.getElementById('restaurant-address'), prevPhotoBtn: document.getElementById('prev-photo'), nextPhotoBtn: document.getElementById('next-photo'), photoIndicators: document.getElementById('photo-indicators'), dislikeButton: document.getElementById('dislike-button'), likeButton: document.getElementById('like-button'), mapsLinkPlaceholder: document.getElementById('google-maps-link-placeholder') };
@@ -331,8 +375,12 @@
          }
         function fetchRestaurants() {
             let loadingMessage = "Finding food places...";
-            if (highRatingFilter.checked) {
+            if (highRatingFilter.checked && popularPlacesFilter.checked) {
+                loadingMessage = "Finding highly-rated popular food places...";
+            } else if (highRatingFilter.checked) {
                 loadingMessage = "Finding highly-rated food places...";
+            } else if (popularPlacesFilter.checked) {
+                loadingMessage = "Finding popular food places...";
             }
             setLoadingText(loadingMessage);
             showView(views.loading); hideError();
@@ -489,7 +537,10 @@
                     
                     // 2. Review dates - check if all reviews are recent
                     let allReviewsRecent = false;
+                    let hasReviews = false;
+                    
                     if (d.reviews && d.reviews.length > 0) {
+                        hasReviews = true;
                         // Sort all reviews by date (oldest first)
                         const sortedReviews = [...d.reviews].sort((a, b) => 
                             new Date(a.time * 1000) - new Date(b.time * 1000)
@@ -512,14 +563,16 @@
                             'long time', 'year ago', 'years ago', 'was here last year', 
                             'returned after', 'used to be', 'always been', 'regular',
                             'again', 'back to', 'still good', 'still great', 'still the best',
-                            'as usual', 'as always'
+                            'as usual', 'as always', 'reopened', 're-opened'
                         ];
                         
                         // Phrases that suggest the place IS new
                         const newPhrases = [
                             'just opened', 'newly opened', 'new place', 'new restaurant', 
                             'new opening', 'recent opening', 'grand opening', 'soft opening',
-                            'opening week', 'first week', 'first day', 'first customers'
+                            'opening week', 'first week', 'first day', 'first customers',
+                            'recent addition', 'recently opened', 'brand new', 'newly established',
+                            'only been open', 'month since opening', 'weeks since opening'
                         ];
                         
                         const hasNotNewPhrase = notNewPhrases.some(phrase => reviewText.includes(phrase));
@@ -535,8 +588,17 @@
                             isNew = fewReviews && allReviewsRecent;
                         }
                     } else {
-                        // No reviews might mean it's very new
+                        // No reviews might mean it's very new, but allow other signals to override
                         isNew = true;
+                    }
+                    
+                    // Additional signal: Very low review count is a strong indicator of newness
+                    // Override previous determination if review count is extremely low (3 or fewer)
+                    if (d.user_ratings_total !== undefined && d.user_ratings_total <= 3) {
+                        isNew = true;
+                    } else if (d.user_ratings_total > 30) {
+                        // Many reviews usually means established business
+                        isNew = false;
                     }
                     
                     // Business status check - OPERATIONAL doesn't tell us much about age
@@ -576,17 +638,29 @@
                          cuisine: displayCuisine, 
                          rating: place.rating ? `${place.rating}★ (${place.user_ratings_total || 0})` : "Not rated", 
                          ratingValue: place.rating || 0, // Add actual numeric rating for filtering
+                         user_ratings_total: place.user_ratings_total || 0, // Store total rating count for filtering
                          priceLevel: place.price_level ?? 0, 
                          photoUrls, 
                          currentPhotoIndex: 0,
                          reviews: placeDetails.reviews || [],
-                         isNew: placeDetails.isNew || false
+                         isNew: placeDetails.isNew || false,
+                         // Store coordinates for travel time calculation
+                         coordinates: place.geometry && place.geometry.location ? {
+                             lat: place.geometry.location.lat(),
+                             lng: place.geometry.location.lng()
+                         } : null
                      };
                  });
                  
+                 // Apply filters
                  // Filter by high rating if the option is checked
                  if (highRatingFilter.checked) {
                      restaurants = restaurants.filter(place => place.ratingValue >= 4.5);
+                 }
+                 
+                 // Filter by popular places if the option is checked
+                 if (popularPlacesFilter.checked) {
+                     restaurants = restaurants.filter(place => place.ratingValue >= 4.2 && place.user_ratings_total >= 100);
                  }
                  
                  if (restaurants.length === 0) { showError('No food places found matching your criteria.'); showView(views.search); return; }
@@ -614,6 +688,121 @@
         }
         function createGoogleMapsLink(restaurant) { if (!restaurant) return null; let url; if (restaurant.id) { url = `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${restaurant.id}`; } else if (restaurant.name && restaurant.address) { const query = encodeURIComponent(`${restaurant.name}, ${restaurant.address}`); url = `https://www.google.com/maps/search/?api=1&query=${query}`; } else { return null; } const link = document.createElement('a'); link.href = url; link.textContent = "View on Google Maps ↗"; link.className = "google-maps-link"; link.target = "_blank"; link.rel = "noopener noreferrer"; return link; }
 
+        // --- Travel Time Functions ---
+        async function getTravelTimes(origin, destination) {
+            if (!origin || !destination || typeof google === 'undefined' || !google.maps?.DistanceMatrixService) {
+                return { driving: null, transit: null };
+            }
+            
+            const service = new google.maps.DistanceMatrixService();
+            
+            try {
+                // First get driving time
+                const drivingResult = await new Promise((resolve, reject) => {
+                    service.getDistanceMatrix({
+                        origins: [origin],
+                        destinations: [destination],
+                        travelMode: google.maps.TravelMode.DRIVING,
+                        unitSystem: google.maps.UnitSystem.METRIC
+                    }, (response, status) => {
+                        if (status === 'OK') {
+                            resolve(response);
+                        } else {
+                            console.error("Driving time calculation failed:", status);
+                            resolve(null);
+                        }
+                    });
+                });
+                
+                // Then get transit time
+                const transitResult = await new Promise((resolve, reject) => {
+                    service.getDistanceMatrix({
+                        origins: [origin],
+                        destinations: [destination],
+                        travelMode: google.maps.TravelMode.TRANSIT,
+                        unitSystem: google.maps.UnitSystem.METRIC
+                    }, (response, status) => {
+                        if (status === 'OK') {
+                            resolve(response);
+                        } else {
+                            console.error("Transit time calculation failed:", status);
+                            resolve(null);
+                        }
+                    });
+                });
+                
+                // Process results
+                const drivingTime = drivingResult && 
+                                    drivingResult.rows[0]?.elements[0]?.status === "OK" ? 
+                                    drivingResult.rows[0].elements[0].duration.text : null;
+                                    
+                const transitTime = transitResult && 
+                                    transitResult.rows[0]?.elements[0]?.status === "OK" ? 
+                                    transitResult.rows[0].elements[0].duration.text : null;
+                
+                return { driving: drivingTime, transit: transitTime };
+            } catch (error) {
+                console.error("Error calculating travel times:", error);
+                return { driving: null, transit: null };
+            }
+        }
+        
+        // Creates travel time elements for a restaurant
+        function createTravelTimeElements(restaurant) {
+            const container = document.createElement('div');
+            container.className = 'travel-times';
+            
+            if (!userCoordinates || !restaurant.coordinates) {
+                return container; // Return empty container if no coordinates
+            }
+            
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'travel-time-loading';
+            loadingDiv.textContent = 'Calculating travel times...';
+            container.appendChild(loadingDiv);
+            
+            // Start async calculation of travel times
+            const origin = new google.maps.LatLng(userCoordinates.lat, userCoordinates.lng);
+            const destination = new google.maps.LatLng(
+                restaurant.coordinates.lat, 
+                restaurant.coordinates.lng
+            );
+            
+            getTravelTimes(origin, destination).then(times => {
+                // Remove loading message
+                container.removeChild(loadingDiv);
+                
+                // Add driving time if available
+                if (times.driving) {
+                    const drivingItem = document.createElement('div');
+                    drivingItem.className = 'travel-time-item';
+                    drivingItem.innerHTML = `<span class="travel-time-icon">🚗</span> ${times.driving} by car`;
+                    container.appendChild(drivingItem);
+                }
+                
+                // Add transit time if available
+                if (times.transit) {
+                    const transitItem = document.createElement('div');
+                    transitItem.className = 'travel-time-item';
+                    transitItem.innerHTML = `<span class="travel-time-icon">🚇</span> ${times.transit} by public transport`;
+                    container.appendChild(transitItem);
+                }
+                
+                // If no times available, show message
+                if (!times.driving && !times.transit) {
+                    const noDataDiv = document.createElement('div');
+                    noDataDiv.className = 'travel-time-item';
+                    noDataDiv.textContent = 'Travel time information unavailable';
+                    container.appendChild(noDataDiv);
+                }
+            }).catch(error => {
+                console.error("Travel time display error:", error);
+                loadingDiv.textContent = 'Unable to calculate travel times';
+            });
+            
+            return container;
+        }
+
         // --- Swipe UI Functions ---
         function updateRestaurantDisplay() {
             if (currentIndex >= restaurants.length) { showResultsView(); return; }
@@ -624,6 +813,12 @@
             const showNav = restaurant.photoUrls.length > 1; swipeUI.prevPhotoBtn.style.display = showNav ? 'flex' : 'none'; swipeUI.nextPhotoBtn.style.display = showNav ? 'flex' : 'none'; swipeUI.photoIndicators.style.display = showNav ? 'flex' : 'none';
             swipeUI.name.textContent = restaurant.name; swipeUI.cuisine.textContent = `Cuisine: ${restaurant.cuisine}`; swipeUI.rating.textContent = `Rating: ${restaurant.rating}`; swipeUI.price.textContent = `Price: ${restaurant.priceLevel > 0 ? '$'.repeat(restaurant.priceLevel) : 'N/A'}`; swipeUI.address.textContent = `Address: ${restaurant.address}`;
             swipeUI.mapsLinkPlaceholder.innerHTML = ''; const mapsLink = createGoogleMapsLink(restaurant); if (mapsLink) swipeUI.mapsLinkPlaceholder.appendChild(mapsLink);
+            
+            // Add travel time information if coordinates are available
+            if (userCoordinates && restaurant.coordinates) {
+                const travelTimeElement = createTravelTimeElements(restaurant);
+                swipeUI.mapsLinkPlaceholder.appendChild(travelTimeElement);
+            }
             
             // Add NEW sticker if restaurant is new
             const photoContainer = document.querySelector('.photo-container');
@@ -639,7 +834,7 @@
                 photoContainer.appendChild(newSticker);
             }
             
-            // Add reviews
+            // Add reviews - directly after travel times without extra spacing
             if (restaurant.reviews && restaurant.reviews.length > 0) {
                 const reviewsContainer = document.createElement('div');
                 reviewsContainer.className = 'restaurant-reviews';
@@ -710,7 +905,6 @@
                     reviewsContainer.appendChild(reviewElement);
                 });
                 
-                swipeUI.mapsLinkPlaceholder.appendChild(document.createElement('br'));
                 swipeUI.mapsLinkPlaceholder.appendChild(reviewsContainer);
             }
         }
@@ -789,13 +983,18 @@
                 const mapsLink = createGoogleMapsLink(r); 
                 if (mapsLink) { contentDiv.appendChild(mapsLink); }
                 
-                // Add a single review if available
+                // Add travel time information if coordinates are available
+                if (userCoordinates && r.coordinates) {
+                    contentDiv.appendChild(createTravelTimeElements(r));
+                }
+                
+                // Add a single review if available - make it compact
                 if (r.reviews && r.reviews.length > 0) {
                     const review = r.reviews[0]; // Use most relevant review (first one)
                     
                     const reviewDiv = document.createElement('div');
                     reviewDiv.className = 'review-item';
-                    reviewDiv.style.marginTop = '10px';
+                    reviewDiv.style.marginTop = '5px'; // Reduced margin
                     
                     // Format the date
                     let dateText = 'Unknown date';
@@ -888,7 +1087,8 @@
                 priceLevel: r.priceLevel, 
                 photoUrls: (r.photoUrls && r.photoUrls.length > 0) ? [r.photoUrls[0]] : [],
                 reviews: r.reviews || [],
-                isNew: r.isNew || false
+                isNew: r.isNew || false,
+                coordinates: r.coordinates || null
             }));
             const sessionData = { restaurants: restaurantsToSave, timestamp: firebase.database.ServerValue.TIMESTAMP, likes: {} };
             firebase.database().ref('sessions/'+sessionId).set(sessionData).then(() => console.log("Session saved:", sessionId)).catch(e=>console.error("Session save error:",e));
@@ -910,6 +1110,7 @@
         function resetApp() {
             locationInput.value=''; radiusSelect.value='2000'; priceLevelSelect.value=''; cuisineKeywordInput.value=''; resultsUI.friendCodeInput.value='';
             highRatingFilter.checked = false; // Reset the high-rating filter
+            popularPlacesFilter.checked = false; // Reset the popular places filter
             restaurants=[]; currentIndex=0; likedRestaurants={}; sessionId=''; userCoordinates=null;
             resultsUI.likedListContainer.innerHTML = ''; resultsUI.likedListContainer.classList.add('hidden');
             resultsUI.viewLikedButton.textContent = 'View My Liked Food Places';
