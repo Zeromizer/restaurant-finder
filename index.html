@@ -1778,8 +1778,8 @@
         let isSwiping = false;
         let swipeDetectionTimer = null;
         let isScrolling = false;
-        const SWIPE_THRESHOLD = 120; // Increased from 80 to require more deliberate swipes
-        const SCROLL_THRESHOLD = 10; // Small threshold to detect vertical scrolling
+        const SWIPE_THRESHOLD = 100; // Medium sensitivity - was 120 (too high), was 80 (too low)
+        const SCROLL_THRESHOLD = 15; // Slightly increased to better detect intentional scrolling
         
         function initSwipeGestures() {
             const card = document.querySelector('.restaurant-card');
@@ -1809,7 +1809,7 @@
                     if (!isScrolling) {
                         isSwiping = true;
                     }
-                }, 100); // 100ms delay before swiping can be detected
+                }, 70); // Reduced from 100ms to 70ms for more responsive swiping
             }, { passive: true });
             
             // Touch move
@@ -1830,17 +1830,17 @@
                 // Only handle horizontal swipes if we're not scrolling
                 if (isSwiping && !isScrolling) {
                     // Apply transform based on swipe direction
-                    if (touchDeltaX > 30) { // Small threshold before visual feedback starts
+                    if (touchDeltaX > 20) { // Reduced from 30 to 20 for faster visual feedback
                         // Swiping right (like)
                         card.classList.add('swiping-right');
                         card.classList.remove('swiping-left');
-                        likeOverlay.style.opacity = Math.min(touchDeltaX / (SWIPE_THRESHOLD * 2), 0.8);
+                        likeOverlay.style.opacity = Math.min(touchDeltaX / (SWIPE_THRESHOLD * 1.5), 0.8); // Reduced multiplier for faster visual feedback
                         dislikeOverlay.style.opacity = 0;
-                    } else if (touchDeltaX < -30) { // Small threshold before visual feedback starts
+                    } else if (touchDeltaX < -20) { // Reduced from -30 to -20 for faster visual feedback
                         // Swiping left (dislike)
                         card.classList.add('swiping-left');
                         card.classList.remove('swiping-right');
-                        dislikeOverlay.style.opacity = Math.min(Math.abs(touchDeltaX) / (SWIPE_THRESHOLD * 2), 0.8);
+                        dislikeOverlay.style.opacity = Math.min(Math.abs(touchDeltaX) / (SWIPE_THRESHOLD * 1.5), 0.8); // Reduced multiplier for faster visual feedback
                         likeOverlay.style.opacity = 0;
                     } else {
                         // No movement yet
