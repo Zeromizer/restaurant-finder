@@ -671,13 +671,59 @@
             width: 100%;
             box-sizing: border-box;
         }
+        .restaurant-item-image-container {
+            position: relative;
+            width: 80px;
+            flex-shrink: 0;
+            margin-right: 12px;
+            display: flex;
+            flex-direction: column;
+        }
         .restaurant-item-image {
             width: 80px;
             height: 80px;
             border-radius: var(--radius-sm);
             object-fit: cover;
-            margin-right: 12px;
-            flex-shrink: 0;
+        }
+        .restaurant-item-actions {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 4px;
+            gap: 5px;
+        }
+        .map-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+            padding: 3px 5px;
+            font-size: 14px;
+            color: #555;
+            text-decoration: none;
+            width: 90%;
+            text-align: center;
+        }
+        .map-icon:hover {
+            background-color: #e0e0e0;
+        }
+        .travel-times-below {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            width: 90%;
+        }
+        .travel-time-badge {
+            background-color: #f0f0f0;
+            border-radius: 4px;
+            padding: 2px 4px;
+            font-size: 10px;
+            color: #555;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            white-space: nowrap;
         }
         .restaurant-item-content {
             flex: 1;
@@ -1351,84 +1397,8 @@
 
         // Updated function for creating a combined maps link + travel times row
         function createMapsAndTravelRow(restaurant) {
-            // Create container
-            const container = document.createElement('div');
-            container.className = 'maps-travel-container';
-            
-            // Create link
-            const mapsLink = createGoogleMapsLink(restaurant);
-            if (mapsLink) {
-                container.appendChild(mapsLink);
-            }
-            
-            // If we have coordinates, add travel times
-            if (userCoordinates && restaurant.coordinates) {
-                // Create travel times container
-                const timesContainer = document.createElement('div');
-                timesContainer.className = 'travel-times-inline';
-                
-                // Add travel times if available
-                if (restaurant.travelTimes) {
-                    if (restaurant.travelTimes.driving) {
-                        const drivingItem = document.createElement('span');
-                        drivingItem.className = 'travel-time-inline';
-                        drivingItem.innerHTML = `<span class="travel-time-icon">🚗</span>${restaurant.travelTimes.driving}`;
-                        timesContainer.appendChild(drivingItem);
-                    }
-                    
-                    if (restaurant.travelTimes.transit) {
-                        const transitItem = document.createElement('span');
-                        transitItem.className = 'travel-time-inline';
-                        transitItem.innerHTML = `<span class="travel-time-icon">🚇</span>${restaurant.travelTimes.transit}`;
-                        timesContainer.appendChild(transitItem);
-                    }
-                } else {
-                    // Calculate travel times
-                    const origin = new google.maps.LatLng(userCoordinates.lat, userCoordinates.lng);
-                    const destination = new google.maps.LatLng(
-                        restaurant.coordinates.lat, restaurant.coordinates.lng
-                    );
-                    
-                    const calcItem = document.createElement('span');
-                    calcItem.className = 'travel-time-inline calculating';
-                    calcItem.textContent = 'Calculating...';
-                    timesContainer.appendChild(calcItem);
-                    
-                    // Get travel times asynchronously
-                    getTravelTimes(origin, destination).then(times => {
-                        // Store for future use
-                        restaurant.travelTimes = times;
-                        
-                        // Clear and rebuild
-                        timesContainer.innerHTML = '';
-                        
-                        if (times.driving) {
-                            const drivingItem = document.createElement('span');
-                            drivingItem.className = 'travel-time-inline';
-                            drivingItem.innerHTML = `<span class="travel-time-icon">🚗</span>${times.driving}`;
-                            timesContainer.appendChild(drivingItem);
-                        }
-                        
-                        if (times.transit) {
-                            const transitItem = document.createElement('span');
-                            transitItem.className = 'travel-time-inline';
-                            transitItem.innerHTML = `<span class="travel-time-icon">🚇</span>${times.transit}`;
-                            timesContainer.appendChild(transitItem);
-                        }
-                        
-                        if (!times.driving && !times.transit) {
-                            const noDataItem = document.createElement('span');
-                            noDataItem.className = 'travel-time-inline';
-                            noDataItem.textContent = 'N/A';
-                            timesContainer.appendChild(noDataItem);
-                        }
-                    });
-                }
-                
-                container.appendChild(timesContainer);
-            }
-            
-            return container;
+            // This function is no longer used - Maps link and travel times are now displayed below the image
+            return document.createElement('div');
         }
 
         // --- Travel Time Functions ---
@@ -1865,11 +1835,57 @@
             // Create price display
             const priceDisplay = r.priceLevel > 0 ? '$'.repeat(r.priceLevel) : 'N/A';
             
-            // Create item structure
+            // Create image container with actions below
+            const imageContainer = document.createElement('div');
+            imageContainer.className = 'restaurant-item-image-container';
+            
             const itemImage = document.createElement('img');
             itemImage.src = imageUrl;
             itemImage.alt = r.name;
             itemImage.className = 'restaurant-item-image';
+            
+            // Create actions container below image
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'restaurant-item-actions';
+            
+            // Create Google Maps icon link
+            const mapsLink = document.createElement('a');
+            mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(r.name + ' ' + (r.address || ''))}`;
+            mapsLink.className = 'map-icon';
+            mapsLink.innerHTML = '🗺️';
+            mapsLink.target = '_blank';
+            mapsLink.rel = 'noopener noreferrer';
+            mapsLink.title = 'View on Google Maps';
+            
+            actionsDiv.appendChild(mapsLink);
+            
+            // Add travel times below image if available
+            if (r.travelTimes) {
+                const travelTimesDiv = document.createElement('div');
+                travelTimesDiv.className = 'travel-times-below';
+                
+                if (r.travelTimes.driving) {
+                    const drivingTime = document.createElement('span');
+                    drivingTime.className = 'travel-time-badge';
+                    drivingTime.innerHTML = `🚗 ${r.travelTimes.driving}`;
+                    travelTimesDiv.appendChild(drivingTime);
+                }
+                
+                if (r.travelTimes.transit) {
+                    const transitTime = document.createElement('span');
+                    transitTime.className = 'travel-time-badge';
+                    transitTime.innerHTML = `🚇 ${r.travelTimes.transit}`;
+                    travelTimesDiv.appendChild(transitTime);
+                }
+                
+                if (travelTimesDiv.childNodes.length > 0) {
+                    actionsDiv.appendChild(travelTimesDiv);
+                }
+            }
+            
+            // Add image and actions to container
+            imageContainer.appendChild(itemImage);
+            imageContainer.appendChild(actionsDiv);
             
             const contentDiv = document.createElement('div');
             contentDiv.className = 'restaurant-item-content';
@@ -1895,9 +1911,6 @@
             contentDiv.appendChild(nameElement);
             contentDiv.appendChild(metaRow);
             contentDiv.appendChild(addressElement);
-            
-            // Add the maps link and travel times in a single row
-            contentDiv.appendChild(createMapsAndTravelRow(r));
             
             // Add a review if available - now full width
             if (r.reviews && r.reviews.length > 0) {
@@ -1957,9 +1970,6 @@
             
             // Create NEW badge if applicable
             if (r.isNew) {
-                const imageWrapper = document.createElement('div');
-                imageWrapper.style.position = 'relative';
-                
                 const newSticker = document.createElement('div');
                 newSticker.className = 'new-sticker';
                 newSticker.textContent = 'NEW';
@@ -1968,15 +1978,14 @@
                 newSticker.style.fontSize = '10px';
                 newSticker.style.padding = '3px 6px';
                 
-                imageWrapper.appendChild(itemImage);
-                imageWrapper.appendChild(newSticker);
-                
-                // Add elements to container
-                item.appendChild(imageWrapper);
-            } else {
-                item.appendChild(itemImage);
+                // Position the new sticker on the image
+                itemImage.style.position = 'relative';
+                imageContainer.style.position = 'relative';
+                imageContainer.appendChild(newSticker);
             }
             
+            // Add elements to container
+            item.appendChild(imageContainer);
             item.appendChild(contentDiv);
             container.appendChild(item);
         }
