@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Restaurant Matcher</title>
     <style>
         /* --- Base Styles --- */
@@ -12,6 +12,9 @@
             color: #333; 
             line-height: 1.6;
             font-size: 15px;
+            -webkit-text-size-adjust: 100%; /* Prevent text scaling in Safari */
+            width: 100%;
+            overflow-x: hidden;
         }
         :root {
             --primary: #FF5864;
@@ -30,10 +33,14 @@
         }
         .container { 
             max-width: 100%; 
-            width: 500px; 
+            width: 100%; 
+            max-width: 500px; 
             margin: 0 auto; 
-            padding: 15px; 
-            overflow: visible; 
+            padding: 15px;
+            padding-left: max(15px, env(safe-area-inset-left));
+            padding-right: max(15px, env(safe-area-inset-right));
+            overflow: visible;
+            box-sizing: border-box;
         }
         .hidden { display: none !important; }
 
@@ -440,6 +447,20 @@
             font-size: 13px;
             color: var(--dark-gray);
         }
+        .travel-times-compact {
+            display: flex;
+            font-size: 12px;
+            color: var(--dark-gray);
+            flex-wrap: nowrap;
+            align-items: center;
+        }
+        .travel-times-compact .travel-time-item {
+            margin-right: 8px;
+            padding: 2px 6px;
+            background: var(--light-gray);
+            border-radius: 12px;
+            white-space: nowrap;
+        }
         .travel-time-item {
             display: flex;
             align-items: center;
@@ -499,22 +520,26 @@
             font-size: 11px;
         }
         .review-text {
+            margin-top: 4px;
             font-size: 13px;
             line-height: 1.4;
-            color: #555;
+            color: var(--dark-gray);
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            word-break: break-word;
+            max-width: 100%;
         }
         .review-text.truncated {
             cursor: pointer;
-            position: relative;
         }
-        .review-text.truncated:after {
+        .review-text.truncated::after {
             content: "⋯ Read more";
             color: var(--secondary);
-            font-style: italic;
-            display: inline;
+            white-space: nowrap;
+            margin-left: 4px;
         }
         .review-text.expanded {
-            white-space: pre-line;
+            white-space: pre-wrap;
         }
         .review-type {
             font-size: 10px;
@@ -533,6 +558,8 @@
             display: flex;
             border-bottom: 1px solid var(--light-gray);
             padding: 12px;
+            width: 100%;
+            box-sizing: border-box;
         }
         .restaurant-item:last-child {
             border-bottom: none;
@@ -543,22 +570,34 @@
             border-radius: var(--radius-sm);
             object-fit: cover;
             margin-right: 12px;
+            flex-shrink: 0;
         }
         .restaurant-item-content {
             flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0; /* Prevents flex items from overflowing */
+            width: calc(100% - 92px); /* 80px image + 12px margin */
         }
         .restaurant-item h3 {
             font-size: 15px;
             margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .restaurant-item p {
             font-size: 12px;
             color: var(--dark-gray);
             margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .restaurant-item .meta-row {
             display: flex;
             flex-wrap: wrap;
+            margin-bottom: 2px;
         }
         .restaurant-item .meta-item {
             font-size: 12px;
@@ -568,6 +607,20 @@
         .price-level {
             color: #27ae60;
             font-weight: 500;
+        }
+        .restaurant-item .travel-times {
+            margin-top: 4px;
+            margin-bottom: 4px;
+        }
+        .restaurant-item .review-item {
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        .restaurant-item .google-maps-link {
+            font-size: 12px;
+            margin-top: 4px;
+            margin-bottom: 4px;
+            display: block;
         }
 
         /* --- Loading & Error --- */
@@ -659,9 +712,43 @@
         @media (max-width: 580px) {
             .container {
                 padding: 10px;
+                padding-left: max(10px, env(safe-area-inset-left));
+                padding-right: max(10px, env(safe-area-inset-right));
+                width: 100%;
             }
             .restaurant-card {
                 height: calc(100vh - 120px);
+                width: 100%;
+                max-width: 100%;
+            }
+            .restaurant-item {
+                width: 100%;
+                box-sizing: border-box;
+            }
+            .restaurant-item-image {
+                width: 70px;
+                height: 70px;
+            }
+            /* Adjust font sizes for better mobile legibility */
+            .restaurant-item h3 {
+                font-size: 14px;
+            }
+            .restaurant-item p,
+            .restaurant-item .meta-item,
+            .travel-times-compact {
+                font-size: 11px;
+            }
+        }
+
+        /* Fix for iOS Safari notch support */
+        @supports (padding: max(0px)) {
+            body {
+                padding-left: min(0px, env(safe-area-inset-left));
+                padding-right: min(0px, env(safe-area-inset-right));
+            }
+            .container {
+                padding-left: max(15px, env(safe-area-inset-left));
+                padding-right: max(15px, env(safe-area-inset-right));
             }
         }
     </style>
@@ -897,7 +984,31 @@
         function initAutocomplete() {
             if (typeof google === 'undefined' || !google.maps?.places?.Autocomplete) { console.error("Autocomplete library not ready."); showError("Location search failed."); return; }
             try {
-                autocomplete = new google.maps.places.Autocomplete(locationInput, { types: ['geocode', 'establishment'], fields: ['geometry', 'name', 'formatted_address', 'place_id'], componentRestrictions: { country: [] } });
+                // Set up autocomplete with Singapore bias
+                autocomplete = new google.maps.places.Autocomplete(locationInput, { 
+                    types: ['geocode', 'establishment'], 
+                    fields: ['geometry', 'name', 'formatted_address', 'place_id'], 
+                    componentRestrictions: { country: ['sg'] } // Restrict to Singapore
+                });
+                
+                // Append "Singapore" to the search query if not already present
+                locationInput.addEventListener('input', function() {
+                    const value = this.value.trim();
+                    if (value && !value.toLowerCase().includes('singapore') && 
+                        !value.startsWith("Current Location") && value.length > 3) {
+                        // Only append when typing has paused for 1 second
+                        if (this.searchTimer) clearTimeout(this.searchTimer);
+                        this.searchTimer = setTimeout(() => {
+                            const cursorPosition = this.selectionStart;
+                            if (!this.value.toLowerCase().includes('singapore')) {
+                                this.value = value + ', Singapore';
+                                // Restore cursor position to where it was before appending
+                                this.setSelectionRange(cursorPosition, cursorPosition);
+                            }
+                        }, 1000);
+                    }
+                });
+                
                 autocomplete.addListener('place_changed', () => {
                     const place = autocomplete.getPlace(); hideError();
                     if (!place.geometry?.location) { userCoordinates = null; return; }
@@ -1579,7 +1690,7 @@
             const metaRow = document.createElement('div');
             metaRow.className = 'meta-row';
             
-            // Add cuisine, rating, price
+            // Add rating and price
             metaRow.innerHTML = `
                 <div class="meta-item"><span class="meta-icon">⭐</span> ${r.rating}</div>
                 <div class="meta-item price-level"><span class="meta-icon">💰</span> ${priceDisplay}</div>
@@ -1594,16 +1705,138 @@
             contentDiv.appendChild(metaRow);
             contentDiv.appendChild(addressElement);
             
+            // Create maps link and travel times row
+            const mapsRow = document.createElement('div');
+            mapsRow.style.display = 'flex';
+            mapsRow.style.alignItems = 'center';
+            mapsRow.style.marginTop = '4px';
+            mapsRow.style.marginBottom = '4px';
+            
             // Add maps link
             const mapsLink = createGoogleMapsLink(r);
-            if (mapsLink) { contentDiv.appendChild(mapsLink); }
-            
-            // Add travel times if available
-            if (userCoordinates && r.coordinates) {
-                contentDiv.appendChild(createTravelTimeElements(r));
+            if (mapsLink) { 
+                mapsLink.style.marginRight = '10px';
+                mapsRow.appendChild(mapsLink);
             }
             
-            // Add a single review if available
+            // Add travel times inline with maps link
+            if (userCoordinates && r.coordinates) {
+                const travelTimesElement = document.createElement('div');
+                travelTimesElement.className = 'travel-times-compact';
+                travelTimesElement.style.display = 'flex';
+                travelTimesElement.style.flexWrap = 'nowrap';
+                
+                // Add travel times if available
+                if (r.travelTimes) {
+                    // Car time
+                    if (r.travelTimes.driving) {
+                        const drivingItem = document.createElement('div');
+                        drivingItem.className = 'travel-time-item';
+                        drivingItem.innerHTML = `<span class="travel-time-icon">🚗</span> ${r.travelTimes.driving}`;
+                        travelTimesElement.appendChild(drivingItem);
+                    }
+                    
+                    // Transit time
+                    if (r.travelTimes.transit) {
+                        const transitItem = document.createElement('div');
+                        transitItem.className = 'travel-time-item';
+                        transitItem.innerHTML = `<span class="travel-time-icon">🚇</span> ${r.travelTimes.transit}`;
+                        travelTimesElement.appendChild(transitItem);
+                    }
+                    
+                    // If no times available, calculate them
+                    if (!r.travelTimes.driving && !r.travelTimes.transit) {
+                        const loadingDiv = document.createElement('div');
+                        loadingDiv.className = 'travel-time-item';
+                        loadingDiv.textContent = 'Calculating...';
+                        travelTimesElement.appendChild(loadingDiv);
+                        
+                        // Start async calculation of travel times
+                        const origin = new google.maps.LatLng(userCoordinates.lat, userCoordinates.lng);
+                        const destination = new google.maps.LatLng(
+                            r.coordinates.lat, 
+                            r.coordinates.lng
+                        );
+                        
+                        getTravelTimes(origin, destination).then(times => {
+                            // Store the calculated times with the restaurant
+                            r.travelTimes = times;
+                            
+                            // Clear and update the display
+                            travelTimesElement.innerHTML = '';
+                            
+                            if (times.driving) {
+                                const drivingItem = document.createElement('div');
+                                drivingItem.className = 'travel-time-item';
+                                drivingItem.innerHTML = `<span class="travel-time-icon">🚗</span> ${times.driving}`;
+                                travelTimesElement.appendChild(drivingItem);
+                            }
+                            
+                            if (times.transit) {
+                                const transitItem = document.createElement('div');
+                                transitItem.className = 'travel-time-item';
+                                transitItem.innerHTML = `<span class="travel-time-icon">🚇</span> ${times.transit}`;
+                                travelTimesElement.appendChild(transitItem);
+                            }
+                            
+                            if (!times.driving && !times.transit) {
+                                const noDataDiv = document.createElement('div');
+                                noDataDiv.className = 'travel-time-item';
+                                noDataDiv.textContent = 'N/A';
+                                travelTimesElement.appendChild(noDataDiv);
+                            }
+                        });
+                    }
+                } else {
+                    // Initialize calculation if no travel times are stored
+                    const loadingDiv = document.createElement('div');
+                    loadingDiv.className = 'travel-time-item';
+                    loadingDiv.textContent = 'Calculating...';
+                    travelTimesElement.appendChild(loadingDiv);
+                    
+                    // Start async calculation
+                    const origin = new google.maps.LatLng(userCoordinates.lat, userCoordinates.lng);
+                    const destination = new google.maps.LatLng(
+                        r.coordinates.lat, 
+                        r.coordinates.lng
+                    );
+                    
+                    getTravelTimes(origin, destination).then(times => {
+                        // Store the calculated times
+                        r.travelTimes = times;
+                        
+                        // Clear and update
+                        travelTimesElement.innerHTML = '';
+                        
+                        if (times.driving) {
+                            const drivingItem = document.createElement('div');
+                            drivingItem.className = 'travel-time-item';
+                            drivingItem.innerHTML = `<span class="travel-time-icon">🚗</span> ${times.driving}`;
+                            travelTimesElement.appendChild(drivingItem);
+                        }
+                        
+                        if (times.transit) {
+                            const transitItem = document.createElement('div');
+                            transitItem.className = 'travel-time-item';
+                            transitItem.innerHTML = `<span class="travel-time-icon">🚇</span> ${times.transit}`;
+                            travelTimesElement.appendChild(transitItem);
+                        }
+                        
+                        if (!times.driving && !times.transit) {
+                            const noDataDiv = document.createElement('div');
+                            noDataDiv.className = 'travel-time-item';
+                            noDataDiv.textContent = 'N/A';
+                            travelTimesElement.appendChild(noDataDiv);
+                        }
+                    });
+                }
+                
+                mapsRow.appendChild(travelTimesElement);
+            }
+            
+            contentDiv.appendChild(mapsRow);
+            
+            // Add a review if available - now full width
             if (r.reviews && r.reviews.length > 0) {
                 const review = r.reviews[0]; // Use most relevant review
                 
