@@ -98,11 +98,15 @@
             border-radius: var(--radius-md); 
             padding: 15px; 
             box-shadow: var(--shadow-sm); 
-            margin-bottom: 15px; 
+            margin-bottom: 15px;
+            position: relative;
+            overflow: hidden; /* Prevent icons from leaking outside */
         }
         .form-group { 
             margin-bottom: 12px; 
             position: relative;
+            width: 100%;
+            overflow: visible;
         }
         .form-group:last-child {
             margin-bottom: 0;
@@ -116,6 +120,10 @@
         }
         .input-with-icon {
             position: relative;
+            display: flex;
+            align-items: center;
+            width: 100%;
+            overflow: hidden; /* Ensure icons don't leak out */
         }
         .input-icon {
             position: absolute;
@@ -124,12 +132,21 @@
             transform: translateY(-50%);
             color: #777;
             font-size: 16px;
+            z-index: 1;
+            pointer-events: none; /* Makes sure the icon doesn't interfere with clicks */
+            user-select: none; /* Prevent selection */
+            display: inline-block; /* Ensure proper containment */
+            height: 16px; /* Fix height */
+            width: 16px; /* Fix width */
+            text-align: center; /* Center the icon */
         }
         .button .input-icon {
             position: static;
             transform: none;
             margin-right: 6px;
             display: inline;
+            height: auto;
+            width: auto;
         }
         input, select {
             width: 100%;
@@ -643,6 +660,18 @@
             .travel-times-compact {
                 font-size: 11px;
             }
+            .input-with-icon {
+                width: 100%;
+            }
+            .input-with-icon input,
+            .input-with-icon select {
+                width: 100%;
+                padding-left: 35px;
+            }
+            /* Ensure icons don't overflow outside their containers */
+            .input-icon {
+                font-size: 14px; /* Slightly smaller icons on mobile */
+            }
         }
 
         /* Fix for iOS Safari notch support */
@@ -767,17 +796,17 @@
         <div id="search-view" class="view">
             <div class="header"> <h1>Restaurant Matcher</h1> <p>Find food places to enjoy with friends</p> </div>
             <form id="search-form" class="search-form">
-                 <div class="form-group">
+                <div class="form-group">
                     <label for="location">Location</label>
                     <div class="input-with-icon">
                         <span class="input-icon">📍</span>
                         <input id="location" type="text" placeholder="Enter city, neighborhood, or address" required />
-                </div>
+                    </div>
                     <button type="button" id="use-location-button" class="button icon-button location-button">
                         <span class="input-icon">📍</span> Use My Location
                     </button>
                 </div>
-                 <div class="form-group">
+                <div class="form-group">
                     <label for="radius">Search radius</label>
                     <div class="input-with-icon">
                         <span class="input-icon">🔍</span>
@@ -788,7 +817,7 @@
                             <option value="10000">10 km</option>
                             <option value="20000">20 km</option>
                         </select>
-                 </div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="price-level">Price range</label>
