@@ -260,6 +260,27 @@
             transition: transform 0.3s ease;
             touch-action: pan-y; /* Allow vertical scrolling but capture horizontal */
         }
+        .swipe-hint {
+            text-align: center;
+            color: var(--dark-gray);
+            font-size: 12px;
+            margin-top: 5px;
+            opacity: 0.7;
+            font-style: italic;
+        }
+        .restaurant-info {
+            position: relative;
+        }
+        .restaurant-info::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 10px;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.05), transparent);
+            pointer-events: none;
+        }
         /* Touch feedback styles */
         .swiping-right {
             transform: rotate(5deg) translateX(40px);
@@ -752,6 +773,7 @@
                     <button class="action-button dislike-button" id="dislike-button">❌</button>
                     <button class="action-button like-button" id="like-button">❤️</button>
                 </div>
+                <div class="swipe-hint">Swipe right to like, left to dislike, or use buttons</div>
             </div>
         </div>
 
@@ -1750,59 +1772,102 @@
 
         // --- Swipe Gesture Handling ---
         let touchStartX = 0;
+        let touchStartY = 0;
         let touchDeltaX = 0;
+        let touchDeltaY = 0;
         let isSwiping = false;
-        const SWIPE_THRESHOLD = 80; // Minimum distance to trigger a swipe action
+        let swipeDetectionTimer = null;
+        let isScrolling = false;
+        const SWIPE_THRESHOLD = 120; // Increased from 80 to require more deliberate swipes
+        const SCROLL_THRESHOLD = 10; // Small threshold to detect vertical scrolling
         
         function initSwipeGestures() {
             const card = document.querySelector('.restaurant-card');
             const likeOverlay = document.querySelector('.swipe-like-overlay');
             const dislikeOverlay = document.querySelector('.swipe-dislike-overlay');
+            const infoBody = card.querySelector('.restaurant-info-body');
             
             // Touch start
             card.addEventListener('touchstart', function(e) {
                 touchStartX = e.touches[0].clientX;
-                isSwiping = true;
+                touchStartY = e.touches[0].clientY;
                 touchDeltaX = 0;
+                touchDeltaY = 0;
+                
+                // Don't immediately start swiping - wait to see if it's a scroll
+                isScrolling = false;
+                isSwiping = false;
+                
+                // Clear any existing timer
+                if (swipeDetectionTimer) {
+                    clearTimeout(swipeDetectionTimer);
+                }
+                
+                // Set a timer to delay swipe detection
+                swipeDetectionTimer = setTimeout(() => {
+                    // Only enable swiping if we're not scrolling vertically
+                    if (!isScrolling) {
+                        isSwiping = true;
+                    }
+                }, 100); // 100ms delay before swiping can be detected
             }, { passive: true });
             
             // Touch move
             card.addEventListener('touchmove', function(e) {
-                if (!isSwiping) return;
-                
                 touchDeltaX = e.touches[0].clientX - touchStartX;
+                touchDeltaY = e.touches[0].clientY - touchStartY;
                 
-                // Apply transform based on swipe direction
-                if (touchDeltaX > 0) {
-                    // Swiping right (like)
-                    card.classList.add('swiping-right');
-                    card.classList.remove('swiping-left');
-                    likeOverlay.style.opacity = Math.min(touchDeltaX / (SWIPE_THRESHOLD * 2), 0.8);
-                    dislikeOverlay.style.opacity = 0;
-                } else if (touchDeltaX < 0) {
-                    // Swiping left (dislike)
-                    card.classList.add('swiping-left');
-                    card.classList.remove('swiping-right');
-                    dislikeOverlay.style.opacity = Math.min(Math.abs(touchDeltaX) / (SWIPE_THRESHOLD * 2), 0.8);
-                    likeOverlay.style.opacity = 0;
-                } else {
-                    // No movement yet
-                    card.classList.remove('swiping-left', 'swiping-right');
-                    likeOverlay.style.opacity = 0;
-                    dislikeOverlay.style.opacity = 0;
+                // Check if the user is scrolling vertically
+                if (Math.abs(touchDeltaY) > SCROLL_THRESHOLD && !isSwiping) {
+                    isScrolling = true;
+                    // Cancel the swipe detection once we know we're scrolling
+                    if (swipeDetectionTimer) {
+                        clearTimeout(swipeDetectionTimer);
+                        swipeDetectionTimer = null;
+                    }
+                }
+                
+                // Only handle horizontal swipes if we're not scrolling
+                if (isSwiping && !isScrolling) {
+                    // Apply transform based on swipe direction
+                    if (touchDeltaX > 30) { // Small threshold before visual feedback starts
+                        // Swiping right (like)
+                        card.classList.add('swiping-right');
+                        card.classList.remove('swiping-left');
+                        likeOverlay.style.opacity = Math.min(touchDeltaX / (SWIPE_THRESHOLD * 2), 0.8);
+                        dislikeOverlay.style.opacity = 0;
+                    } else if (touchDeltaX < -30) { // Small threshold before visual feedback starts
+                        // Swiping left (dislike)
+                        card.classList.add('swiping-left');
+                        card.classList.remove('swiping-right');
+                        dislikeOverlay.style.opacity = Math.min(Math.abs(touchDeltaX) / (SWIPE_THRESHOLD * 2), 0.8);
+                        likeOverlay.style.opacity = 0;
+                    } else {
+                        // No movement yet
+                        card.classList.remove('swiping-left', 'swiping-right');
+                        likeOverlay.style.opacity = 0;
+                        dislikeOverlay.style.opacity = 0;
+                    }
                 }
             }, { passive: true });
             
             // Touch end
             card.addEventListener('touchend', function() {
-                if (!isSwiping) return;
+                // Clear the timer if it's still active
+                if (swipeDetectionTimer) {
+                    clearTimeout(swipeDetectionTimer);
+                    swipeDetectionTimer = null;
+                }
                 
-                if (touchDeltaX > SWIPE_THRESHOLD) {
-                    // Swipe right completed - Like
-                    handleSwipe(true);
-                } else if (touchDeltaX < -SWIPE_THRESHOLD) {
-                    // Swipe left completed - Dislike
-                    handleSwipe(false);
+                // Only trigger swipe actions if we were swiping and not scrolling
+                if (isSwiping && !isScrolling) {
+                    if (touchDeltaX > SWIPE_THRESHOLD) {
+                        // Swipe right completed - Like
+                        handleSwipe(true);
+                    } else if (touchDeltaX < -SWIPE_THRESHOLD) {
+                        // Swipe left completed - Dislike
+                        handleSwipe(false);
+                    }
                 }
                 
                 // Reset state and appearance
@@ -1819,6 +1884,11 @@
             const dislikeOverlay = document.querySelector('.swipe-dislike-overlay');
             
             isSwiping = false;
+            isScrolling = false;
+            if (swipeDetectionTimer) {
+                clearTimeout(swipeDetectionTimer);
+                swipeDetectionTimer = null;
+            }
             card.classList.remove('swiping-left', 'swiping-right');
             likeOverlay.style.opacity = 0;
             dislikeOverlay.style.opacity = 0;
