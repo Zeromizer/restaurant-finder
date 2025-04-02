@@ -6,173 +6,537 @@
     <title>Restaurant Matcher</title>
     <style>
         /* --- Base Styles --- */
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
-        body { background-color: #f5f5f5; color: #333; line-height: 1.6; }
-        .container { max-width: 100%; width: 500px; margin: 20px auto; padding: 20px; overflow: visible; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, Arial, sans-serif; }
+        body { 
+            background-color: #f8f9fa; 
+            color: #333; 
+            line-height: 1.6;
+            font-size: 15px;
+        }
+        :root {
+            --primary: #FF5864;
+            --primary-dark: #e1404d;
+            --secondary: #007bff;
+            --accent: #00d174;
+            --light-gray: #f5f5f5;
+            --mid-gray: #ddd;
+            --dark-gray: #555;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --shadow-sm: 0 2px 5px rgba(0,0,0,0.08);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+            --transition: all 0.2s ease;
+        }
+        .container { 
+            max-width: 100%; 
+            width: 500px; 
+            margin: 0 auto; 
+            padding: 15px; 
+            overflow: visible; 
+        }
         .hidden { display: none !important; }
+
+        /* --- Typography --- */
+        h1, h2, h3 { line-height: 1.3; }
+        h1 { font-size: 22px; font-weight: 600; }
+        h2 { font-size: 18px; font-weight: 600; }
+        h3 { font-size: 16px; font-weight: 600; }
+        p { margin-bottom: 0.5rem; }
+
+        /* --- Layout Components --- */
+        .card {
+            background: white;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+        .card-header {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--light-gray);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .card-body {
+            padding: 15px;
+        }
+        .card-footer {
+            padding: 12px 15px;
+            border-top: 1px solid var(--light-gray);
+        }
 
         /* --- View Transitions --- */
         .view { width: 100%; opacity: 1; transition: opacity 0.3s ease-in-out; display: block; }
         .view.transition-hidden { opacity: 0; height: 0; overflow: hidden; pointer-events: none; }
 
         /* --- Header --- */
-        .header { text-align: center; margin-bottom: 10px; }
-        .header h1 { color: #FF5864; margin-bottom: 2px; font-size: 24px; }
-        .header p { font-size: 14px; }
+        .header { 
+            text-align: center; 
+            margin-bottom: 15px; 
+        }
+        .header h1 { 
+            color: var(--primary); 
+            margin-bottom: 4px; 
+        }
+        .header p { 
+            font-size: 14px; 
+            color: var(--dark-gray);
+        }
 
         /* --- Forms & Inputs --- */
-        .search-form { background-color: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); margin-bottom: 20px; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 8px; font-weight: 500; color: #555; }
+        .search-form { 
+            background-color: white; 
+            border-radius: var(--radius-md); 
+            padding: 15px; 
+            box-shadow: var(--shadow-sm); 
+            margin-bottom: 15px; 
+        }
+        .form-group { 
+            margin-bottom: 12px; 
+            position: relative;
+        }
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+        label { 
+            font-size: 13px;
+            font-weight: 500; 
+            color: var(--dark-gray); 
+            display: block;
+            margin-bottom: 4px;
+        }
+        .input-with-icon {
+            position: relative;
+        }
+        .input-icon {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #777;
+            font-size: 16px;
+        }
         input, select {
             width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 16px;
-            background-color: #fff;
-            line-height: normal;
-            height: 44px; /* Maintain consistent height */
-        }
-        input:focus, select:focus { border-color: #FF5864; outline: none; box-shadow: 0 0 0 2px rgba(255, 88, 100, 0.2); }
-        /* Style for the share link input */
-        #share-link-input {
-            background-color: #eee;
+            padding: 8px 10px;
+            border: 1px solid var(--mid-gray);
+            border-radius: var(--radius-sm);
             font-size: 14px;
-            word-wrap: break-word; /* Allow long link to wrap */
-             height: auto; /* Allow wrapping */
-             padding: 10px;
-             margin-top: 5px;
+            background-color: #fff;
+            height: 38px;
+            transition: var(--transition);
         }
-
+        .input-with-icon input,
+        .input-with-icon select {
+            padding-left: 35px;
+        }
+        input:focus, select:focus { 
+            border-color: var(--primary); 
+            outline: none; 
+            box-shadow: 0 0 0 2px rgba(255, 88, 100, 0.15); 
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+        }
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            height: auto;
+            margin-right: 8px;
+        }
+        .checkbox-group label {
+            margin: 0;
+            display: inline;
+            font-size: 13px;
+        }
 
         /* --- Buttons --- */
         .button {
-            background-color: #FF5864; color: white; border: none;
-            padding: 12px 20px; border-radius: 30px; cursor: pointer; font-size: 16px; font-weight: 600;
-            display: inline-block; text-align: center; vertical-align: middle;
+            display: inline-block;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            padding: 9px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: center;
             width: 100%;
-            transition: background-color 0.2s ease, transform 0.1s ease;
-            line-height: 1.5;
+            transition: var(--transition);
+            line-height: 1.3;
         }
-        .button:hover:not(:disabled) { background-color: #e1404d; transform: scale(1.02); }
-        .button:active:not(:disabled) { transform: scale(0.98); }
-        .button:disabled { background-color: #ccc; cursor: not-allowed; transform: none; }
-        /* Specific button colors */
-        .button.secondary { background-color: #007bff; border-color: #007bff; }
-        .button.tertiary { background-color: #6c757d; border-color: #6c757d; }
-        .button.copy-button { font-size: 1.2em; background: none; border: none; color: #555; width: auto; padding: 5px; vertical-align: middle; cursor:pointer; }
-
-
-        .location-button { width: 100%; margin-top: 10px; }
-
-        /* --- Card Layout --- */
-        .card { background-color: white; border-radius: 10px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15); overflow: hidden; margin-bottom: 10px; height: auto; position: relative; display: flex; flex-direction: column; }
-        .photo-container { position: relative; width: 100%; height: 220px; overflow: hidden; flex-shrink: 0; background-color: #f0f0f0; }
-        .photo-nav { position: absolute; left: 0; right: 0; bottom: 10px; display: flex; justify-content: center; align-items: center; z-index: 1; }
-        .photo-nav-btn { background-color: rgba(0, 0, 0, 0.5); color: white; border: none; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; display: flex; justify-content: center; align-items: center; margin: 0 5px; transition: background-color 0.2s; }
-        .photo-nav-btn:hover { background-color: rgba(0, 0, 0, 0.8); }
-        #photo-indicators { display: flex; justify-content: center; margin: 0 10px; }
-        .photo-dot { width: 6px; height: 6px; border-radius: 50%; background-color: rgba(255, 255, 255, 0.5); margin: 0 3px; display: inline-block; transition: background-color 0.3s; }
-        .photo-dot.active { background-color: #fff; }
-        .card-content { padding: 10px; flex-grow: 1; }
-        .card-title { font-size: 20px; font-weight: 600; margin-bottom: 5px; color: #333; }
-        .card-info { color: #555; margin-bottom: 5px; font-size: 14px; }
-        .card-info#restaurant-address { line-height: 1.3; }
-        .google-maps-link { display: inline-block; margin-top: 5px; padding: 4px 10px; background-color: #4285F4; color: white; text-decoration: none; border-radius: 4px; font-size: 13px; font-weight: 500; transition: background-color 0.2s; }
-        .google-maps-link:hover { background-color: #357ae8; }
-        .card-actions { position: relative; left: 0; right: 0; display: flex; justify-content: space-evenly; padding: 10px; background: none; border-top: 1px solid #eee; z-index: 2; }
-        .action-button { width: 50px; height: 50px; border-radius: 50%; display: flex; justify-content: center; align-items: center; background-color: white; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; font-size: 22px; }
-        .action-button:hover { transform: scale(1.1); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); }
-        .action-button:active { transform: scale(1.05); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); }
-        .like-button { color: #00d174; }
-        .dislike-button { color: #fd5068; }
-
-        /* --- Loading & Error --- */
-        .loading { display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 300px; padding: 20px; text-align: center; color: #555; }
-        .spinner { border: 4px solid rgba(0, 0, 0, 0.1); width: 36px; height: 36px; border-radius: 50%; border-left-color: #FF5864; animation: spin 1s linear infinite; margin-bottom: 15px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .error-message { color: #c0392b; text-align: center; padding: 15px; background-color: #fbecea; border: 1px solid #e74c3c; border-radius: 8px; margin: 20px 0; font-size: 15px; }
-
-        /* --- Restaurant Lists (Liked, Matched, Shared) --- */
-        .restaurant-list { background-color: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); margin-top: 15px; overflow: visible; }
-        .restaurant-item { border-bottom: 1px solid #eee; }
-        .restaurant-item:last-child { border-bottom: none; }
-        .liked-item-image { height: 200px; }
-        .restaurant-item-content { padding: 10px; }
-        .restaurant-item h3 { margin-bottom: 3px; color: #333; font-size: 16px; }
-        .restaurant-item p { font-size: 13px; color: #666; margin-bottom: 2px; }
-        .price-level { color: #27ae60; font-weight: 500; }
-        .restaurant-item .google-maps-link { font-size: 12px; padding: 3px 8px; margin-top: 5px; }
-
-        /* Travel time styles */
-        .travel-times {
+        .button:hover:not(:disabled) { 
+            background-color: var(--primary-dark); 
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-sm);
+        }
+        .button:active:not(:disabled) { 
+            transform: translateY(0);
+        }
+        .button:disabled { 
+            background-color: #ccc; 
+            cursor: not-allowed; 
+        }
+        .button.secondary { 
+            background-color: var(--secondary); 
+        }
+        .button.tertiary { 
+            background-color: #6c757d; 
+        }
+        .button.outline {
+            background: transparent;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+        }
+        .button.outline:hover {
+            background-color: rgba(255,88,100,0.05);
+        }
+        .button.small {
+            font-size: 13px;
+            padding: 6px 12px;
+        }
+        .button.icon-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .button.icon-button i {
+            margin-right: 6px;
+        }
+        .location-button { 
             margin-top: 8px;
-            padding-top: 5px;
-            border-top: 1px dashed #eee;
-            font-size: 12px;
-            color: #555;
-            margin-bottom: 10px; /* Reduce space after travel times */
+        }
+        .action-button {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: white;
+            box-shadow: var(--shadow-sm);
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 18px;
+            border: none;
+        }
+        .action-button:hover { 
+            transform: scale(1.08); 
+            box-shadow: var(--shadow-md);
+        }
+        .action-button:active { 
+            transform: scale(1.02);
+        }
+        .like-button { 
+            color: var(--accent);
+        }
+        .dislike-button { 
+            color: var(--primary);
+        }
+
+        /* --- Restaurant Cards --- */
+        .restaurant-card {
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            background: white;
+            box-shadow: var(--shadow-md);
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 140px);
+            max-height: 700px;
+            position: relative;
+        }
+        .photo-container { 
+            position: relative;
+            width: 100%;
+            height: 40%;
+            min-height: 200px;
+            overflow: hidden;
+            background-color: #f0f0f0;
+        }
+        .card-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .photo-nav { 
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1;
+        }
+        .photo-nav-btn { 
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            border: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0 5px;
+            transition: var(--transition);
+        }
+        .photo-nav-btn:hover { 
+            background-color: rgba(0, 0, 0, 0.8);
+        }
+        #photo-indicators { 
+            display: flex;
+            justify-content: center;
+            margin: 0 10px;
+        }
+        .photo-dot { 
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.5);
+            margin: 0 3px;
+            display: inline-block;
+            transition: var(--transition);
+        }
+        .photo-dot.active { 
+            background-color: #fff;
+        }
+        .restaurant-info {
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            overflow-y: auto;
+        }
+        .restaurant-info-header {
+            margin-bottom: 8px;
+        }
+        .restaurant-info-header h2 {
+            margin-bottom: 2px;
+        }
+        .restaurant-meta {
+            display: flex;
+            flex-wrap: wrap;
+            font-size: 13px;
+            color: var(--dark-gray);
+            margin-bottom: 8px;
+        }
+        .meta-item {
+            margin-right: 12px;
+            margin-bottom: 3px;
+            display: flex;
+            align-items: center;
+        }
+        .meta-icon {
+            margin-right: 4px;
+            font-size: 14px;
+        }
+        .restaurant-info-body {
+            flex: 1;
+            overflow-y: auto;
+        }
+        .restaurant-info-footer {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid var(--light-gray);
+        }
+        .card-actions {
+            display: flex;
+            justify-content: space-evenly;
+            padding: 15px;
+            background: none;
+            border-top: 1px solid #eee;
+            z-index: 2;
+        }
+        .google-maps-link {
+            display: inline-flex;
+            align-items: center;
+            color: var(--secondary);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .google-maps-link:hover {
+            text-decoration: underline;
+        }
+
+        /* --- Travel Times --- */
+        .travel-times {
+            display: flex;
+            flex-wrap: wrap;
+            margin-top: 8px;
+            font-size: 13px;
+            color: var(--dark-gray);
         }
         .travel-time-item {
             display: flex;
             align-items: center;
+            margin-right: 12px;
             margin-bottom: 4px;
+            background: var(--light-gray);
+            padding: 4px 8px;
+            border-radius: 20px;
         }
         .travel-time-icon {
-            margin-right: 6px;
-            font-size: 14px;
+            margin-right: 4px;
         }
         .travel-time-loading {
-            color: #777;
             font-style: italic;
+            font-size: 12px;
         }
 
-        /* --- Google Places Autocomplete --- */
-        .pac-container { font-family: Arial, sans-serif; border-radius: 4px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2); z-index: 1000 !important; }
-        .pac-item { padding: 10px; cursor: pointer; font-size: 15px; }
-        .pac-item:hover { background-color: #f5f5f5; }
-        .pac-item-query { font-weight: 500; }
-
-        /* --- Review Styles --- */
-        .restaurant-reviews {
-            margin-top: 10px; /* Reduced from default */
+        /* --- Reviews --- */
+        .reviews-section {
+            margin-top: 15px;
         }
         .reviews-title {
-            margin-top: 0; /* Remove top margin */
+            font-size: 15px;
             margin-bottom: 8px;
-            font-size: 16px;
-            color: #333;
-            padding-top: 5px;
-            border-top: 1px dashed #eee;
+            display: flex;
+            align-items: center;
         }
-        .review-item { 
-            padding: 5px 0; /* Reduced padding */
+        .reviews-title::before {
+            content: "★";
+            margin-right: 5px;
+            color: #FFA534;
         }
-        .review-author { 
-            display: flex; 
-            justify-content: space-between; 
-            margin-bottom: 2px; /* Reduced margin */
-            font-size: 13px; 
+        .review-item {
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--light-gray);
         }
-        .review-author span { color: #FFA534; }
-        .review-date { color: #888; font-size: 12px; }
-        .review-text { font-size: 13px; line-height: 1.4; white-space: pre-line; color: #555; }
-        .review-text.truncated { cursor: pointer; position: relative; }
-        .review-text.truncated:after { content: "⋯ Read more"; color: #4285F4; font-style: italic; display: inline; }
-        .review-text.expanded { white-space: pre-line; }
-        .review-type { font-size: 11px; background-color: #f0f0f0; color: #666; padding: 1px 4px; border-radius: 3px; margin-left: 5px; }
-        .more-reviews { font-size: 12px; color: #4285F4; margin-top: 5px; text-align: right; font-style: italic; }
-
-        /* Image padding for proper display */
-        .card-img, .liked-item-image {
-            width: 100%;
-            height: 100%;
-            object-fit: contain; 
-            display: block;
+        .review-item:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+        .review-author {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 3px;
+            font-size: 12px;
+        }
+        .review-author strong {
+            font-weight: 600;
+        }
+        .review-star {
+            color: #FFA534;
+        }
+        .review-date {
+            color: #888;
+            font-size: 11px;
+        }
+        .review-text {
+            font-size: 13px;
+            line-height: 1.4;
+            color: #555;
+        }
+        .review-text.truncated {
+            cursor: pointer;
+            position: relative;
+        }
+        .review-text.truncated:after {
+            content: "⋯ Read more";
+            color: var(--secondary);
+            font-style: italic;
+            display: inline;
+        }
+        .review-text.expanded {
+            white-space: pre-line;
+        }
+        .review-type {
+            font-size: 10px;
             background-color: #f0f0f0;
-            padding: 5px;
-            max-height: 100%;
+            color: #666;
+            padding: 1px 4px;
+            border-radius: 3px;
+            margin-left: 5px;
+        }
+
+        /* --- Restaurant Lists --- */
+        .restaurant-list {
+            margin-top: 15px;
+        }
+        .restaurant-item {
+            display: flex;
+            border-bottom: 1px solid var(--light-gray);
+            padding: 12px;
+        }
+        .restaurant-item:last-child {
+            border-bottom: none;
+        }
+        .restaurant-item-image {
+            width: 80px;
+            height: 80px;
+            border-radius: var(--radius-sm);
+            object-fit: cover;
+            margin-right: 12px;
+        }
+        .restaurant-item-content {
+            flex: 1;
+        }
+        .restaurant-item h3 {
+            font-size: 15px;
+            margin-bottom: 2px;
+        }
+        .restaurant-item p {
+            font-size: 12px;
+            color: var(--dark-gray);
+            margin-bottom: 2px;
+        }
+        .restaurant-item .meta-row {
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .restaurant-item .meta-item {
+            font-size: 12px;
+            margin-right: 8px;
+            color: var(--dark-gray);
+        }
+        .price-level {
+            color: #27ae60;
+            font-weight: 500;
+        }
+
+        /* --- Loading & Error --- */
+        .loading {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 300px;
+            padding: 20px;
+            text-align: center;
+            color: var(--dark-gray);
+        }
+        .spinner {
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border-left-color: var(--primary);
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .error-message {
+            color: #c0392b;
+            text-align: center;
+            padding: 12px;
+            background-color: #fbecea;
+            border: 1px solid #e74c3c;
+            border-radius: var(--radius-sm);
+            margin: 15px 0;
+            font-size: 14px;
         }
 
         /* --- New Restaurant Sticker --- */
@@ -182,35 +546,58 @@
             right: 10px;
             background-color: #FF3B30;
             color: white;
-            padding: 6px 12px;
+            padding: 5px 10px;
             border-radius: 4px;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: bold;
             transform: rotate(5deg);
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
             z-index: 10;
             animation: pulse-bounce 2s infinite;
         }
-        
-        .restaurant-item .new-sticker {
-            top: 5px;
-            right: 5px;
-            font-size: 11px;
-            padding: 4px 8px;
-        }
-        
-        /* Animation for NEW sticker */
         @keyframes pulse-bounce {
-            0% { transform: rotate(5deg) scale(1); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-            20% { transform: rotate(5deg) scale(1.1); box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
-            30% { transform: rotate(5deg) scale(1); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-            40% { transform: rotate(5deg) scale(1.1); box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
-            50% { transform: rotate(5deg) scale(1); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-            70% { transform: rotate(5deg) translateY(-3px); box-shadow: 0 5px 8px rgba(0,0,0,0.3); }
-            80% { transform: rotate(5deg) translateY(0); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-            100% { transform: rotate(5deg) scale(1); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+            0% { transform: rotate(5deg) scale(1); }
+            20% { transform: rotate(5deg) scale(1.05); }
+            30% { transform: rotate(5deg) scale(1); }
+            40% { transform: rotate(5deg) scale(1.05); }
+            50% { transform: rotate(5deg) scale(1); }
+            100% { transform: rotate(5deg) scale(1); }
         }
 
+        /* --- Results/Matching UI --- */
+        .session-code {
+            font-size: 20px;
+            background-color: var(--light-gray);
+            padding: 5px 10px;
+            border-radius: var(--radius-sm);
+            user-select: all;
+            cursor: pointer;
+            font-family: monospace;
+        }
+        .copy-button {
+            background: none;
+            border: none;
+            color: var(--dark-gray);
+            font-size: 16px;
+            cursor: pointer;
+            padding: 3px 5px;
+            vertical-align: middle;
+        }
+        .share-section {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid var(--light-gray);
+        }
+
+        /* --- Responsive design --- */
+        @media (max-width: 580px) {
+            .container {
+                padding: 10px;
+            }
+            .restaurant-card {
+                height: calc(100vh - 120px);
+            }
+        }
     </style>
 </head>
 <body>
@@ -221,26 +608,64 @@
         <div id="search-view" class="view">
             <div class="header"> <h1>Restaurant Matcher</h1> <p>Find food places to enjoy with friends</p> </div>
             <form id="search-form" class="search-form">
-                 <div class="form-group">
+                <div class="form-group">
                     <label for="location">Location</label>
-                    <input id="location" type="text" placeholder="Enter city, neighborhood, or address" class="location-input" required />
-                    <button type="button" id="use-location-button" class="button location-button">📍 My Location</button>
+                    <div class="input-with-icon">
+                        <span class="input-icon">📍</span>
+                        <input id="location" type="text" placeholder="Enter city, neighborhood, or address" required />
+                    </div>
+                    <button type="button" id="use-location-button" class="button icon-button location-button">
+                        <span class="input-icon">📍</span> Use My Location
+                    </button>
                 </div>
-                 <div class="form-group"> <label for="radius">Distance (km)</label> <select id="radius" name="radius"> <option value="1000">1 km</option> <option value="2000" selected>2 km</option> <option value="5000">5 km</option> <option value="10000">10 km</option> <option value="20000">20 km</option> </select> </div>
-                 <div class="form-group"> <label for="price-level">Price Level</label> <select id="price-level" name="price-level"> <option value="">Any</option> <option value="1">$ (Inexpensive)</option> <option value="2">$$ (Moderate)</option> <option value="3">$$$ (Expensive)</option> <option value="4">$$$$ (Very Expensive)</option> </select> </div>
-                 <div class="form-group">
-                    <label for="cuisine-keyword">Cuisine, Specific Dish or Place Type (Optional)</label>
-                    <input type="text" id="cuisine-keyword" name="cuisine-keyword" placeholder="e.g., Italian, Pizza, Cafe, Hawker, Food Court">
-                 </div>
-                 <div class="form-group" style="display: flex; align-items: center;">
-                    <input type="checkbox" id="high-rating-filter" name="high-rating-filter" style="width: auto; height: auto; margin-right: 10px;">
-                    <label for="high-rating-filter" style="display: inline; margin: 0;">Show only highly-rated places (4.5+ stars)</label>
-                 </div>
-                 <div class="form-group" style="display: flex; align-items: center;">
-                    <input type="checkbox" id="popular-places-filter" name="popular-places-filter" style="width: auto; height: auto; margin-right: 10px;">
-                    <label for="popular-places-filter" style="display: inline; margin: 0;">Show only popular places (4.2+ stars with 100+ reviews)</label>
-                 </div>
-                <button type="submit" class="button" id="search-button">Find Food Places</button>
+                <div class="form-group">
+                    <label for="radius">Search radius</label>
+                    <div class="input-with-icon">
+                        <span class="input-icon">🔍</span>
+                        <select id="radius" name="radius">
+                            <option value="1000">1 km</option>
+                            <option value="2000" selected>2 km</option>
+                            <option value="5000">5 km</option>
+                            <option value="10000">10 km</option>
+                            <option value="20000">20 km</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="price-level">Price range</label>
+                    <div class="input-with-icon">
+                        <span class="input-icon">💰</span>
+                        <select id="price-level" name="price-level">
+                            <option value="">Any price</option>
+                            <option value="1">$ (Inexpensive)</option>
+                            <option value="2">$$ (Moderate)</option>
+                            <option value="3">$$$ (Expensive)</option>
+                            <option value="4">$$$$ (Very Expensive)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="cuisine-keyword">Cuisine or place type</label>
+                    <div class="input-with-icon">
+                        <span class="input-icon">🍽️</span>
+                        <input type="text" id="cuisine-keyword" name="cuisine-keyword" placeholder="e.g., Italian, Pizza, Cafe, Hawker">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="high-rating-filter" name="high-rating-filter">
+                        <label for="high-rating-filter">Only highly-rated places (4.5+ stars)</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="popular-places-filter" name="popular-places-filter">
+                        <label for="popular-places-filter">Only popular places (4.2+ stars, 100+ reviews)</label>
+                    </div>
+                </div>
+                <button type="submit" class="button icon-button" id="search-button">
+                    <span class="input-icon">🔍</span> Find Food Places
+                </button>
             </form>
         </div>
 
@@ -248,37 +673,88 @@
         <div id="loading-view" class="view transition-hidden"> <div class="loading"><div class="spinner"></div><p id="loading-text">Finding food places...</p></div> </div>
 
         <!-- Swipe View -->
-        <div id="swipe-view" class="view transition-hidden"> <div class="header"> <h1>Find Your Match</h1> <p>Food Place <span id="current-index">1</span> of <span id="total-restaurants">?</span></p> </div> <div class="card"> <div class="photo-container"> <img class="card-img" id="restaurant-image" src="..." alt="Restaurant"> <div class="photo-nav"> <button id="prev-photo" class="photo-nav-btn">❮</button> <div id="photo-indicators"></div> <button id="next-photo" class="photo-nav-btn">❯</button> </div> </div> <div class="card-content"> <h2 class="card-title" id="restaurant-name">...</h2> <p class="card-info" id="restaurant-cuisine">...</p> <p class="card-info" id="restaurant-rating">...</p> <p class="card-info" id="restaurant-price">...</p> <p class="card-info" id="restaurant-address">...</p> <div id="google-maps-link-placeholder"></div> </div> <div class="card-actions"> <div class="action-button dislike-button" id="dislike-button">❌</div> <div class="action-button like-button" id="like-button">❤️</div> </div> </div> </div>
+        <div id="swipe-view" class="view transition-hidden">
+            <div class="header">
+                <h1>Find Your Match</h1>
+                <p>Food Place <span id="current-index">1</span> of <span id="total-restaurants">?</span></p>
+            </div>
+            <div class="restaurant-card">
+                <div class="photo-container">
+                    <img class="card-img" id="restaurant-image" src="..." alt="Restaurant">
+                    <div class="photo-nav">
+                        <button id="prev-photo" class="photo-nav-btn">❮</button>
+                        <div id="photo-indicators"></div>
+                        <button id="next-photo" class="photo-nav-btn">❯</button>
+                    </div>
+                </div>
+                <div class="restaurant-info">
+                    <div class="restaurant-info-header">
+                        <h2 id="restaurant-name">...</h2>
+                        <div class="restaurant-meta">
+                            <div class="meta-item" id="restaurant-cuisine"><span class="meta-icon">🍽️</span> ...</div>
+                            <div class="meta-item" id="restaurant-rating"><span class="meta-icon">⭐</span> ...</div>
+                            <div class="meta-item" id="restaurant-price"><span class="meta-icon">💰</span> ...</div>
+                        </div>
+                        <div class="meta-item" id="restaurant-address"><span class="meta-icon">📍</span> ...</div>
+                    </div>
+                    
+                    <div class="restaurant-info-body" id="google-maps-link-placeholder">
+                        <!-- Travel times and reviews will be inserted here -->
+                    </div>
+                </div>
+                <div class="card-actions">
+                    <button class="action-button dislike-button" id="dislike-button">❌</button>
+                    <button class="action-button like-button" id="like-button">❤️</button>
+                </div>
+            </div>
+        </div>
 
         <!-- Results View -->
         <div id="results-view" class="view transition-hidden">
-            <div class="header"> <h1>Your Results</h1> <p>You liked <span id="liked-count">0</span> food place(s)</p> </div>
-            <div class="search-form">
-                 <!-- Session Code -->
-                 <p style="text-align:center; margin-bottom:5px;">Share this code for matching:</p>
-                 <p style="text-align:center; margin-bottom:20px;"> <strong id="session-id" style="font-size:1.5em; background-color:#eee; padding:5px 10px; border-radius:4px; user-select:all; cursor:pointer;">CODE</strong> <button id="copy-code-button" title="Copy Code" class="button copy-button">📋</button> </p>
-
-                 <!-- Find Matches -->
-                 <div class="form-group"> <label for="friend-code">Enter Friend's Code</label> <input id="friend-code" type="text" placeholder="Paste friend's code"/> </div>
-                 <button class="button" id="find-matches-button">Find Matches</button>
-
-                 <!-- Share Link Section -->
-                 <div id="share-link-section" class="form-group" style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
-                     <label for="share-link-input">Share your liked list with a link:</label>
-                     <div style="display: flex; align-items: center;">
-                         <input type="text" id="share-link-input" readonly placeholder="Generating share link...">
-                         <button id="copy-link-button" title="Copy Link" class="button copy-button" style="margin-left: 5px;">📋</button>
+            <div class="header">
+                <h1>Your Results</h1>
+                <p>You liked <span id="liked-count">0</span> food place(s)</p>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <h3>Share & Match</h3>
+                </div>
+                <div class="card-body">
+                    <!-- Session Code -->
+                    <div class="form-group">
+                        <label>Your session code</label>
+                        <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 15px;">
+                            <span id="session-id" class="session-code">CODE</span>
+                            <button id="copy-code-button" title="Copy Code" class="copy-button">📋</button>
+                        </div>
                     </div>
-                 </div>
 
-                 <!-- View Liked / Start Over -->
-                 <button type="button" class="button secondary" id="view-liked-button" style="margin-top: 15px;">View My Liked Food Places</button>
-                 <button class="button tertiary" id="start-over-button" style="margin-top:15px;">Start Over</button>
-             </div>
+                    <!-- Find Matches -->
+                    <div class="form-group">
+                        <label for="friend-code">Enter friend's code</label>
+                        <input id="friend-code" type="text" placeholder="Paste friend's code"/>
+                    </div>
+                    <button class="button" id="find-matches-button">Find Matches</button>
 
-             <div id="liked-restaurants-list" class="restaurant-list hidden">
-                 <!-- Liked restaurants populated here -->
-             </div>
+                    <!-- Share Link Section -->
+                    <div id="share-link-section" class="share-section">
+                        <label for="share-link-input">Share your liked list</label>
+                        <div style="display: flex; align-items: center;">
+                            <input type="text" id="share-link-input" readonly placeholder="Generating share link...">
+                            <button id="copy-link-button" title="Copy Link" class="copy-button">📋</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <!-- View Liked / Start Over -->
+                    <button type="button" class="button secondary" id="view-liked-button" style="margin-bottom: 10px;">View My Liked Food Places</button>
+                    <button class="button tertiary" id="start-over-button">Start Over</button>
+                </div>
+            </div>
+
+            <div id="liked-restaurants-list" class="restaurant-list hidden card">
+                <!-- Liked restaurants populated here -->
+            </div>
         </div>
 
         <!-- Matches View -->
@@ -422,7 +898,7 @@
                     
             placesService.nearbySearch(request, (results, status) => {
                         console.log(`Places Status for ${type}:`, status);
-                        if (status === google.maps.places.PlacesServiceStatus.OK && results?.length > 0) {
+                if (status === google.maps.places.PlacesServiceStatus.OK && results?.length > 0) {
                             resolve(results);
                         } else {
                             resolve([]); // Return empty array if no results or error
@@ -648,7 +1124,9 @@
                          coordinates: place.geometry && place.geometry.location ? {
                              lat: place.geometry.location.lat(),
                              lng: place.geometry.location.lng()
-                         } : null
+                         } : null,
+                         // Initialize travel times property
+                         travelTimes: null
                      };
                  });
                  
@@ -752,6 +1230,14 @@
             const container = document.createElement('div');
             container.className = 'travel-times';
             
+            // Check if we've already calculated travel times for this restaurant
+            if (restaurant.travelTimes) {
+                console.log(`Using cached travel times for ${restaurant.name}`);
+                // Use cached travel times
+                displayTravelTimes(restaurant.travelTimes, container);
+                return container;
+            }
+            
             if (!userCoordinates || !restaurant.coordinates) {
                 return container; // Return empty container if no coordinates
             }
@@ -761,6 +1247,8 @@
             loadingDiv.textContent = 'Calculating travel times...';
             container.appendChild(loadingDiv);
             
+            console.log(`Calculating new travel times for ${restaurant.name}`);
+            
             // Start async calculation of travel times
             const origin = new google.maps.LatLng(userCoordinates.lat, userCoordinates.lng);
             const destination = new google.maps.LatLng(
@@ -769,50 +1257,82 @@
             );
             
             getTravelTimes(origin, destination).then(times => {
+                // Store the calculated times with the restaurant
+                restaurant.travelTimes = times;
+                console.log(`Travel times calculated and stored for ${restaurant.name}`);
+                
                 // Remove loading message
                 container.removeChild(loadingDiv);
                 
-                // Add driving time if available
-                if (times.driving) {
-                    const drivingItem = document.createElement('div');
-                    drivingItem.className = 'travel-time-item';
-                    drivingItem.innerHTML = `<span class="travel-time-icon">🚗</span> ${times.driving} by car`;
-                    container.appendChild(drivingItem);
-                }
-                
-                // Add transit time if available
-                if (times.transit) {
-                    const transitItem = document.createElement('div');
-                    transitItem.className = 'travel-time-item';
-                    transitItem.innerHTML = `<span class="travel-time-icon">🚇</span> ${times.transit} by public transport`;
-                    container.appendChild(transitItem);
-                }
-                
-                // If no times available, show message
-                if (!times.driving && !times.transit) {
-                    const noDataDiv = document.createElement('div');
-                    noDataDiv.className = 'travel-time-item';
-                    noDataDiv.textContent = 'Travel time information unavailable';
-                    container.appendChild(noDataDiv);
-                }
+                // Display the travel times
+                displayTravelTimes(times, container);
             }).catch(error => {
-                console.error("Travel time display error:", error);
+                console.error(`Travel time display error for ${restaurant.name}:`, error);
                 loadingDiv.textContent = 'Unable to calculate travel times';
             });
             
             return container;
+        }
+        
+        // Helper function to display travel times in a container
+        function displayTravelTimes(times, container) {
+            // Add driving time if available
+            if (times.driving) {
+                const drivingItem = document.createElement('div');
+                drivingItem.className = 'travel-time-item';
+                drivingItem.innerHTML = `<span class="travel-time-icon">🚗</span> ${times.driving} by car`;
+                container.appendChild(drivingItem);
+            }
+            
+            // Add transit time if available
+            if (times.transit) {
+                const transitItem = document.createElement('div');
+                transitItem.className = 'travel-time-item';
+                transitItem.innerHTML = `<span class="travel-time-icon">🚇</span> ${times.transit} by public transport`;
+                container.appendChild(transitItem);
+            }
+            
+            // If no times available, show message
+            if (!times.driving && !times.transit) {
+                const noDataDiv = document.createElement('div');
+                noDataDiv.className = 'travel-time-item';
+                noDataDiv.textContent = 'Travel time information unavailable';
+                container.appendChild(noDataDiv);
+            }
         }
 
         // --- Swipe UI Functions ---
         function updateRestaurantDisplay() {
             if (currentIndex >= restaurants.length) { showResultsView(); return; }
             const restaurant = restaurants[currentIndex];
-            swipeUI.currentIndex.textContent = currentIndex + 1; swipeUI.totalRestaurants.textContent = restaurants.length;
-            restaurant.currentPhotoIndex = restaurant.currentPhotoIndex || 0; swipeUI.image.src = restaurant.photoUrls[restaurant.currentPhotoIndex]; swipeUI.image.alt = restaurant.name;
-            swipeUI.photoIndicators.innerHTML = ''; restaurant.photoUrls.forEach((_, index) => { const dot = document.createElement('span'); dot.className = 'photo-dot' + (index === restaurant.currentPhotoIndex ? ' active' : ''); swipeUI.photoIndicators.appendChild(dot); });
-            const showNav = restaurant.photoUrls.length > 1; swipeUI.prevPhotoBtn.style.display = showNav ? 'flex' : 'none'; swipeUI.nextPhotoBtn.style.display = showNav ? 'flex' : 'none'; swipeUI.photoIndicators.style.display = showNav ? 'flex' : 'none';
-            swipeUI.name.textContent = restaurant.name; swipeUI.cuisine.textContent = `Cuisine: ${restaurant.cuisine}`; swipeUI.rating.textContent = `Rating: ${restaurant.rating}`; swipeUI.price.textContent = `Price: ${restaurant.priceLevel > 0 ? '$'.repeat(restaurant.priceLevel) : 'N/A'}`; swipeUI.address.textContent = `Address: ${restaurant.address}`;
-            swipeUI.mapsLinkPlaceholder.innerHTML = ''; const mapsLink = createGoogleMapsLink(restaurant); if (mapsLink) swipeUI.mapsLinkPlaceholder.appendChild(mapsLink);
+            
+            // Update counter and photo
+            swipeUI.currentIndex.textContent = currentIndex + 1; 
+            swipeUI.totalRestaurants.textContent = restaurants.length;
+            restaurant.currentPhotoIndex = restaurant.currentPhotoIndex || 0; 
+            swipeUI.image.src = restaurant.photoUrls[restaurant.currentPhotoIndex]; 
+            swipeUI.image.alt = restaurant.name;
+            
+            // Update photo indicators
+            updatePhotoIndicators(restaurant);
+            const showNav = restaurant.photoUrls.length > 1; 
+            swipeUI.prevPhotoBtn.style.display = showNav ? 'flex' : 'none'; 
+            swipeUI.nextPhotoBtn.style.display = showNav ? 'flex' : 'none'; 
+            swipeUI.photoIndicators.style.display = showNav ? 'flex' : 'none';
+            
+            // Update restaurant information
+            swipeUI.name.textContent = restaurant.name;
+            swipeUI.cuisine.innerHTML = `<span class="meta-icon">🍽️</span> ${restaurant.cuisine}`;
+            swipeUI.rating.innerHTML = `<span class="meta-icon">⭐</span> ${restaurant.rating}`;
+            swipeUI.price.innerHTML = `<span class="meta-icon">💰</span> ${restaurant.priceLevel > 0 ? '$'.repeat(restaurant.priceLevel) : 'N/A'}`;
+            swipeUI.address.innerHTML = `<span class="meta-icon">📍</span> ${restaurant.address}`;
+            
+            // Clear and rebuild the info body
+            swipeUI.mapsLinkPlaceholder.innerHTML = '';
+            
+            // Add Google Maps link
+            const mapsLink = createGoogleMapsLink(restaurant); 
+            if (mapsLink) swipeUI.mapsLinkPlaceholder.appendChild(mapsLink);
             
             // Add travel time information if coordinates are available
             if (userCoordinates && restaurant.coordinates) {
@@ -830,14 +1350,14 @@
             if (restaurant.isNew) {
                 const newSticker = document.createElement('div');
                 newSticker.className = 'new-sticker';
-                newSticker.textContent = 'NEWLY OPENED';
+                newSticker.textContent = 'NEW';
                 photoContainer.appendChild(newSticker);
             }
             
-            // Add reviews - directly after travel times without extra spacing
+            // Add reviews section
             if (restaurant.reviews && restaurant.reviews.length > 0) {
                 const reviewsContainer = document.createElement('div');
-                reviewsContainer.className = 'restaurant-reviews';
+                reviewsContainer.className = 'reviews-section';
                 
                 const reviewsTitle = document.createElement('h3');
                 reviewsTitle.className = 'reviews-title';
@@ -863,7 +1383,7 @@
                         '<span class="review-type">Most Relevant</span>' : 
                         '<span class="review-type">Recent</span>';
                     
-                    authorDiv.innerHTML = `<div><strong>${review.author_name || 'Anonymous'}</strong> ${reviewType}</div><div><span>${review.rating}★</span> <span class="review-date">${dateText}</span></div>`;
+                    authorDiv.innerHTML = `<div><strong>${review.author_name || 'Anonymous'}</strong> ${reviewType}</div><div><span class="review-star">${review.rating}★</span> <span class="review-date">${dateText}</span></div>`;
                     
                     const textDiv = document.createElement('div');
                     textDiv.className = 'review-text';
@@ -896,11 +1416,6 @@
                     
                     reviewElement.appendChild(authorDiv);
                     reviewElement.appendChild(textDiv);
-                    
-                    // Add a separator except for the last review
-                    if (index < restaurant.reviews.length - 1) {
-                        reviewElement.style.borderBottom = '1px solid #eee';
-                    }
                     
                     reviewsContainer.appendChild(reviewElement);
                 });
@@ -971,76 +1486,136 @@
             showView(views.matches);
         }
         function createRestaurantItemElement(r, container) {
-            const item = document.createElement('div'); item.className = 'restaurant-item';
-            const imageUrl = (r.photoUrls && r.photoUrls.length > 0) ? r.photoUrls[0] : "https://placehold.co/300x150/cccccc/ffffff?text=No+Image";
+            const item = document.createElement('div');
+            item.className = 'restaurant-item';
+            
+            // Get image URL
+            const imageUrl = (r.photoUrls && r.photoUrls.length > 0) ? 
+                r.photoUrls[0] : "https://placehold.co/160x160/f0f0f0/999?text=No+Image";
+                
+            // Create price display
             const priceDisplay = r.priceLevel > 0 ? '$'.repeat(r.priceLevel) : 'N/A';
             
-            // Create the basic structure with image container for position reference
-            item.innerHTML = `<div style="position: relative;"><img src="${imageUrl}" alt="${r.name}" class="liked-item-image">${r.isNew ? '<div class="new-sticker">NEWLY OPENED</div>' : ''}</div><div class="restaurant-item-content"><h3>${r.name}</h3><p>Cuisine: ${r.cuisine}</p><p>Rating: ${r.rating}</p><p class="price-level">Price: ${priceDisplay}</p><p>Address: ${r.address}</p></div>`;
+            // Create item structure
+            const itemImage = document.createElement('img');
+            itemImage.src = imageUrl;
+            itemImage.alt = r.name;
+            itemImage.className = 'restaurant-item-image';
             
-            const contentDiv = item.querySelector('.restaurant-item-content');
-            if(contentDiv){ 
-                const mapsLink = createGoogleMapsLink(r); 
-                if (mapsLink) { contentDiv.appendChild(mapsLink); }
-                
-                // Add travel time information if coordinates are available
-                if (userCoordinates && r.coordinates) {
-                    contentDiv.appendChild(createTravelTimeElements(r));
-                }
-                
-                // Add a single review if available - make it compact
-                if (r.reviews && r.reviews.length > 0) {
-                    const review = r.reviews[0]; // Use most relevant review (first one)
-                    
-                    const reviewDiv = document.createElement('div');
-                    reviewDiv.className = 'review-item';
-                    reviewDiv.style.marginTop = '5px'; // Reduced margin
-                    
-                    // Format the date
-                    let dateText = 'Unknown date';
-                    if (review.time) {
-                        const reviewDate = new Date(review.time * 1000);
-                        dateText = reviewDate.toLocaleDateString();
-                    }
-                    
-                    const reviewHeader = document.createElement('div');
-                    reviewHeader.className = 'review-author';
-                    reviewHeader.innerHTML = `<div><strong>Top Review</strong></div><div><span>${review.rating}★</span> <span class="review-date">${dateText}</span></div>`;
-                    
-                    const reviewText = document.createElement('div');
-                    reviewText.className = 'review-text';
-                    
-                    // Handle long reviews with truncation and expansion
-                    const fullText = review.text || 'No review text';
-                    const isTruncated = fullText.length > 100;
-                    
-                    if (isTruncated) {
-                        // Add truncated class and store full text as data attribute
-                        reviewText.className = 'review-text truncated';
-                        reviewText.setAttribute('data-full-text', fullText);
-                        reviewText.textContent = fullText.substring(0, 100);
-                        
-                        // Add click handler to expand
-                        reviewText.addEventListener('click', function() {
-                            if (this.classList.contains('truncated')) {
-                                this.textContent = this.getAttribute('data-full-text');
-                                this.classList.remove('truncated');
-                                this.classList.add('expanded');
-                            } else {
-                                this.textContent = this.getAttribute('data-full-text').substring(0, 100);
-                                this.classList.remove('expanded');
-                                this.classList.add('truncated');
-                            }
-                        });
-                    } else {
-                        reviewText.textContent = fullText;
-                    }
-                    
-                    reviewDiv.appendChild(reviewHeader);
-                    reviewDiv.appendChild(reviewText);
-                    contentDiv.appendChild(reviewDiv);
-                }
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'restaurant-item-content';
+            
+            // Create title and basic info
+            const nameElement = document.createElement('h3');
+            nameElement.textContent = r.name;
+            
+            const metaRow = document.createElement('div');
+            metaRow.className = 'meta-row';
+            
+            // Add cuisine, rating, price
+            metaRow.innerHTML = `
+                <div class="meta-item"><span class="meta-icon">🍽️</span> ${r.cuisine}</div>
+                <div class="meta-item"><span class="meta-icon">⭐</span> ${r.rating}</div>
+                <div class="meta-item price-level"><span class="meta-icon">💰</span> ${priceDisplay}</div>
+            `;
+            
+            // Create address
+            const addressElement = document.createElement('p');
+            addressElement.innerHTML = `<span class="meta-icon">📍</span> ${r.address}`;
+            
+            // Add elements to content div
+            contentDiv.appendChild(nameElement);
+            contentDiv.appendChild(metaRow);
+            contentDiv.appendChild(addressElement);
+            
+            // Add maps link
+            const mapsLink = createGoogleMapsLink(r);
+            if (mapsLink) { contentDiv.appendChild(mapsLink); }
+            
+            // Add travel times if available
+            if (userCoordinates && r.coordinates) {
+                contentDiv.appendChild(createTravelTimeElements(r));
             }
+            
+            // Add a single review if available
+            if (r.reviews && r.reviews.length > 0) {
+                const review = r.reviews[0]; // Use most relevant review
+                
+                const reviewDiv = document.createElement('div');
+                reviewDiv.className = 'review-item';
+                reviewDiv.style.marginTop = '8px';
+                
+                // Format date
+                let dateText = 'Unknown date';
+                if (review.time) {
+                    const reviewDate = new Date(review.time * 1000);
+                    dateText = reviewDate.toLocaleDateString();
+                }
+                
+                // Create review header
+                const reviewHeader = document.createElement('div');
+                reviewHeader.className = 'review-author';
+                reviewHeader.innerHTML = `
+                    <div><strong>Top Review</strong></div>
+                    <div><span class="review-star">${review.rating}★</span> <span class="review-date">${dateText}</span></div>
+                `;
+                
+                // Create review text
+                const reviewText = document.createElement('div');
+                reviewText.className = 'review-text';
+                
+                // Handle long reviews
+                const fullText = review.text || 'No review text';
+                const isTruncated = fullText.length > 100;
+                
+                if (isTruncated) {
+                    reviewText.className = 'review-text truncated';
+                    reviewText.setAttribute('data-full-text', fullText);
+                    reviewText.textContent = fullText.substring(0, 100);
+                    
+                    reviewText.addEventListener('click', function() {
+                        if (this.classList.contains('truncated')) {
+                            this.textContent = this.getAttribute('data-full-text');
+                            this.classList.remove('truncated');
+                            this.classList.add('expanded');
+                        } else {
+                            this.textContent = this.getAttribute('data-full-text').substring(0, 100);
+                            this.classList.remove('expanded');
+                            this.classList.add('truncated');
+                        }
+                    });
+                } else {
+                    reviewText.textContent = fullText;
+                }
+                
+                reviewDiv.appendChild(reviewHeader);
+                reviewDiv.appendChild(reviewText);
+                contentDiv.appendChild(reviewDiv);
+            }
+            
+            // Create NEW badge if applicable
+            if (r.isNew) {
+                const imageWrapper = document.createElement('div');
+                imageWrapper.style.position = 'relative';
+                
+                const newSticker = document.createElement('div');
+                newSticker.className = 'new-sticker';
+                newSticker.textContent = 'NEW';
+                newSticker.style.top = '0';
+                newSticker.style.right = '0';
+                newSticker.style.fontSize = '10px';
+                newSticker.style.padding = '3px 6px';
+                
+                imageWrapper.appendChild(itemImage);
+                imageWrapper.appendChild(newSticker);
+                
+                // Add elements to container
+                item.appendChild(imageWrapper);
+            } else {
+                item.appendChild(itemImage);
+            }
+            
+            item.appendChild(contentDiv);
             container.appendChild(item);
         }
 
@@ -1088,7 +1663,8 @@
                 photoUrls: (r.photoUrls && r.photoUrls.length > 0) ? [r.photoUrls[0]] : [],
                 reviews: r.reviews || [],
                 isNew: r.isNew || false,
-                coordinates: r.coordinates || null
+                coordinates: r.coordinates || null,
+                travelTimes: r.travelTimes || null
             }));
             const sessionData = { restaurants: restaurantsToSave, timestamp: firebase.database.ServerValue.TIMESTAMP, likes: {} };
             firebase.database().ref('sessions/'+sessionId).set(sessionData).then(() => console.log("Session saved:", sessionId)).catch(e=>console.error("Session save error:",e));
@@ -1131,40 +1707,49 @@
         window.swipeUI = swipeUI; window.resultsUI = resultsUI; window.matchesUI = matchesUI; window.sharedUI = sharedUI;
 
         // --- Event Listeners ---
-        searchForm.addEventListener('submit', (e) => { e.preventDefault(); fetchRestaurants(); });
-        useLocationButton.addEventListener('click', getUserLocation);
-        swipeUI.prevPhotoBtn.addEventListener('click', () => changePhoto(-1));
-        swipeUI.nextPhotoBtn.addEventListener('click', () => changePhoto(1));
-        swipeUI.dislikeButton.addEventListener('click', () => handleSwipe(false));
-        swipeUI.likeButton.addEventListener('click', () => handleSwipe(true));
-        resultsUI.findMatchesButton.addEventListener('click', findMatches);
-        resultsUI.startOverButton.addEventListener('click', resetApp);
-        resultsUI.copyCodeButton.addEventListener('click', copySessionId);
-        resultsUI.sessionId.addEventListener('click', () => { if (resultsUI.sessionId.textContent !== 'CODE') { window.getSelection().selectAllChildren(resultsUI.sessionId); }});
-        resultsUI.viewLikedButton.addEventListener('click', () => { const isHidden = resultsUI.likedListContainer.classList.toggle('hidden'); resultsUI.viewLikedButton.textContent = isHidden ? 'View My Liked Food Places' : 'Hide My Liked Food Places'; });
-        resultsUI.copyLinkButton.addEventListener('click', copyShareLink);
-        matchesUI.startOverButton.addEventListener('click', resetApp);
-        sharedUI.startOverButton.addEventListener('click', resetApp);
-
-        // --- Initialization ---
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log("DOM loaded.");
-
-            // *** ALWAYS load Maps and initialize Firebase ***
-            loadGoogleMapsScript();
-            // Initialize Firebase slightly deferred to ensure SDKs load, but always run it
+        document.addEventListener('DOMContentLoaded', function(){
+            // Page setup
             setTimeout(initializeFirebase, 500);
-
-            // *** Check for share parameter AFTER starting initializations ***
+            loadGoogleMapsScript();
+            
+            // Search view events
+            searchForm.addEventListener('submit', function(e) { e.preventDefault(); fetchRestaurants(); });
+            useLocationButton.addEventListener('click', getUserLocation);
+            
+            // Swipe view events
+            swipeUI.prevPhotoBtn.addEventListener('click', showPreviousPhoto);
+            swipeUI.nextPhotoBtn.addEventListener('click', showNextPhoto);
+            swipeUI.dislikeButton.addEventListener('click', () => handleSwipe(false));
+            swipeUI.likeButton.addEventListener('click', () => handleSwipe(true));
+            
+            // Results view events
+            resultsUI.findMatchesButton.addEventListener('click', findMatches);
+            resultsUI.startOverButton.addEventListener('click', resetApp);
+            resultsUI.copyCodeButton.addEventListener('click', copySessionId);
+            resultsUI.sessionId.addEventListener('click', () => { 
+                if (resultsUI.sessionId.textContent !== 'CODE') { 
+                    window.getSelection().selectAllChildren(resultsUI.sessionId); 
+                }
+            });
+            resultsUI.viewLikedButton.addEventListener('click', () => { 
+                const isHidden = resultsUI.likedListContainer.classList.toggle('hidden'); 
+                resultsUI.viewLikedButton.textContent = isHidden ? 'View My Liked Food Places' : 'Hide My Liked Food Places'; 
+            });
+            resultsUI.copyLinkButton.addEventListener('click', copyShareLink);
+            
+            // Other view events
+            matchesUI.startOverButton.addEventListener('click', resetApp);
+            sharedUI.startOverButton.addEventListener('click', resetApp);
+            
+            // Check for shared link params
             const urlParams = new URLSearchParams(window.location.search);
             const shareId = urlParams.get('share');
-
+            
             if (shareId) {
-                // If share ID exists, prepare to handle it after Firebase is ready.
-                // Show loading view immediately while waiting for Firebase.
+                // If share ID exists, prepare to handle it after Firebase is ready
                 setLoadingText("Loading shared list...");
                 showView(views.loading); // Show loading early
-
+                
                 const firebaseInitInterval = setInterval(() => {
                     // Check if Firebase is initialized
                     if (typeof firebase !== 'undefined' && firebase.apps.length > 0 && firebase.database()) {
@@ -1172,26 +1757,56 @@
                         console.log("Firebase ready, handling shared link...");
                         handleSharedLink(shareId); // Handle the link AFTER Firebase is ready
                     }
-                 }, 150); // Check slightly less frequently
-
-                 // Timeout safeguard in case Firebase never loads/initializes
-                 setTimeout(() => {
-                      // Check if we are still stuck on loading or haven't transitioned to shared view
-                      if(currentVisibleView === views.loading || currentVisibleView !== views.shared){
-                         clearInterval(firebaseInitInterval);
-                         console.error("Timeout waiting for Firebase initialization for shared link.");
-                         showError("Failed to initialize services to load shared list in time.");
-                         // Decide on a fallback view - Resetting is usually safest
-                         resetApp(); // Reset state and show search view
-                      }
-                 }, 10000); // 10 second timeout
-
+                }, 150); // Check slightly less frequently
+                
+                // Timeout safeguard in case Firebase never loads/initializes
+                setTimeout(() => {
+                    // Check if we are still stuck on loading or haven't transitioned to shared view
+                    if(currentVisibleView === views.loading || currentVisibleView !== views.shared){
+                        clearInterval(firebaseInitInterval);
+                        console.error("Timeout waiting for Firebase initialization for shared link.");
+                        showError("Failed to initialize services to load shared list in time.");
+                        // Decide on a fallback view - Resetting is usually safest
+                        resetApp(); // Reset state and show search view
+                    }
+                }, 10000); // 10 second timeout
             } else {
                 // Normal startup sequence: Just show the search view
-                // Maps and Firebase are already being initialized above.
                 showView(views.search);
             }
         });
+
+        function showPreviousPhoto() {
+            if (!restaurants[currentIndex]) return;
+            const r = restaurants[currentIndex];
+            if (!r.photoUrls || r.photoUrls.length <= 1) return;
+            r.currentPhotoIndex = (r.currentPhotoIndex - 1 + r.photoUrls.length) % r.photoUrls.length;
+            swipeUI.image.src = r.photoUrls[r.currentPhotoIndex];
+            
+            // Only update photo indicators, don't recreate travel times
+            updatePhotoIndicators(r);
+        }
+        
+        function showNextPhoto() {
+            if (!restaurants[currentIndex]) return;
+            const r = restaurants[currentIndex];
+            if (!r.photoUrls || r.photoUrls.length <= 1) return;
+            r.currentPhotoIndex = (r.currentPhotoIndex + 1) % r.photoUrls.length;
+            swipeUI.image.src = r.photoUrls[r.currentPhotoIndex];
+            
+            // Only update photo indicators, don't recreate travel times
+            updatePhotoIndicators(r);
+        }
+        
+        // New function to update only photo indicators, separate from full display update
+        function updatePhotoIndicators(restaurant) {
+            swipeUI.photoIndicators.innerHTML = '';
+            restaurant.photoUrls.forEach((_, index) => {
+                const dot = document.createElement('span');
+                dot.className = 'photo-dot' + (index === restaurant.currentPhotoIndex ? ' active' : '');
+                swipeUI.photoIndicators.appendChild(dot);
+            });
+        }
     </script>
 
     <!-- Firebase SDKs -->
