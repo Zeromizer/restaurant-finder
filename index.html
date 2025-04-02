@@ -226,7 +226,7 @@
             margin-top: 8px;
         }
         .action-button {
-            width: 120px;
+            width: 90px;
             height: 46px;
             border-radius: 23px;
             display: flex;
@@ -238,7 +238,8 @@
             transition: var(--transition);
             font-size: 18px;
             border: none;
-            gap: 8px;
+            gap: 6px;
+            margin: 0 5px;
         }
         .action-button:hover { 
             transform: scale(1.05); 
@@ -261,6 +262,15 @@
         .dislike-button::after {
             content: "Pass";
             font-size: 14px;
+            font-weight: 500;
+        }
+        .skip-button {
+            color: var(--secondary);
+            font-size: 16px;
+        }
+        .skip-button::after {
+            content: "Results";
+            font-size: 12px;
             font-weight: 500;
         }
 
@@ -417,6 +427,11 @@
             display: flex;
             align-items: center;
         }
+        #restaurant-address {
+            font-size: 12px;
+            color: #666;
+            margin-top: 2px;
+        }
         .travel-time-meta {
             display: flex;
             align-items: center;
@@ -509,7 +524,7 @@
         .card-actions {
             display: flex;
             justify-content: space-between;
-            padding: 0 20px;
+            padding: 0 10px;
             margin-bottom: 5px;
         }
 
@@ -641,6 +656,61 @@
                 padding-right: max(15px, env(safe-area-inset-right));
             }
         }
+
+        /* --- Restaurant List --- */
+        .restaurant-list {
+            margin-top: 15px;
+        }
+        .restaurant-item {
+            display: flex;
+            background: white;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 15px;
+            padding: 12px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .restaurant-item-image {
+            width: 80px;
+            height: 80px;
+            border-radius: var(--radius-sm);
+            object-fit: cover;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+        .restaurant-item-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0; /* Prevents flex items from overflowing */
+        }
+        .restaurant-item h3 {
+            font-size: 15px;
+            margin: 0 0 4px 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .restaurant-item p {
+            font-size: 12px;
+            color: var(--dark-gray);
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .restaurant-item .meta-row {
+            display: flex;
+            flex-wrap: wrap;
+            margin-bottom: 3px;
+        }
+        .restaurant-item .meta-item {
+            font-size: 12px;
+            margin-right: 12px;
+            margin-bottom: 3px;
+            color: var(--dark-gray);
+        }
     </style>
 </head>
 <body>
@@ -756,6 +826,7 @@
                 <div class="restaurant-info-footer">
                     <div class="card-actions">
                         <button class="action-button dislike-button" id="dislike-button">❌</button>
+                        <button class="action-button skip-button" id="skip-to-results-button">⏩</button>
                         <button class="action-button like-button" id="like-button">❤️</button>
                     </div>
                 </div>
@@ -773,7 +844,7 @@
                     <h3>Share & Match</h3>
                 </div>
                 <div class="card-body">
-                 <!-- Session Code -->
+                    <!-- Session Code -->
                     <div class="form-group">
                         <label>Your session code</label>
                         <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 15px;">
@@ -782,32 +853,32 @@
                         </div>
                     </div>
 
-                 <!-- Find Matches -->
+                    <!-- Find Matches -->
                     <div class="form-group">
                         <label for="friend-code">Enter friend's code</label>
                         <input id="friend-code" type="text" placeholder="Paste friend's code"/>
                     </div>
-                 <button class="button" id="find-matches-button">Find Matches</button>
+                    <button class="button" id="find-matches-button">Find Matches</button>
 
-                 <!-- Share Link Section -->
+                    <!-- Share Link Section -->
                     <div id="share-link-section" class="share-section">
                         <label for="share-link-input">Share your liked list</label>
-                     <div style="display: flex; align-items: center;">
-                         <input type="text" id="share-link-input" readonly placeholder="Generating share link...">
+                        <div style="display: flex; align-items: center;">
+                            <input type="text" id="share-link-input" readonly placeholder="Generating share link...">
                             <button id="copy-link-button" title="Copy Link" class="copy-button">📋</button>
+                        </div>
                     </div>
-                 </div>
                 </div>
                 <div class="card-footer">
-                 <!-- View Liked / Start Over -->
+                    <!-- View Liked / Start Over -->
                     <button type="button" class="button secondary" id="view-liked-button" style="margin-bottom: 10px;">View My Liked Food Places</button>
                     <button class="button tertiary" id="start-over-button">Start Over</button>
                 </div>
-             </div>
+            </div>
 
-            <div id="liked-restaurants-list" class="restaurant-list hidden card">
-                 <!-- Liked restaurants populated here -->
-             </div>
+            <div id="liked-restaurants-list" class="restaurant-list hidden">
+                <!-- Liked restaurants populated here -->
+            </div>
         </div>
 
         <!-- Matches View -->
@@ -1732,10 +1803,30 @@
             likedListContainer.innerHTML = '';
             const myLikedIds = Object.keys(likedRestaurants);
             const likedRestaurantDetails = restaurants.filter(r => myLikedIds.includes(r.id));
+            
             if (likedRestaurantDetails.length > 0) {
-                 const listTitle = document.createElement('h3'); listTitle.style.padding = '15px 15px 0 15px'; listTitle.style.marginBottom = '10px'; listTitle.textContent = "Your Liked Food Places:"; listTitle.style.textAlign = 'center'; likedListContainer.appendChild(listTitle);
-                likedRestaurantDetails.forEach(r => { createRestaurantItemElement(r, likedListContainer); });
-            } else { likedListContainer.innerHTML = '<p style="text-align:center; padding:20px;">You haven\'t liked any food places yet.</p>'; }
+                // Add a header for the liked list
+                const listHeader = document.createElement('div');
+                listHeader.className = 'card';
+                listHeader.style.marginBottom = '15px';
+                
+                const listHeaderContent = document.createElement('div');
+                listHeaderContent.className = 'card-header';
+                listHeaderContent.innerHTML = `<h3>Your Liked Food Places</h3>`;
+                
+                listHeader.appendChild(listHeaderContent);
+                likedListContainer.appendChild(listHeader);
+                
+                // Add each restaurant item
+                likedRestaurantDetails.forEach(r => { 
+                    createRestaurantItemElement(r, likedListContainer); 
+                });
+            } else { 
+                const emptyCard = document.createElement('div');
+                emptyCard.className = 'card';
+                emptyCard.innerHTML = '<div class="card-body"><p style="text-align:center; padding:20px;">You haven\'t liked any food places yet.</p></div>';
+                likedListContainer.appendChild(emptyCard);
+            }
         }
         function findMatches() {
             const friendCode = resultsUI.friendCodeInput.value.trim().toUpperCase();
@@ -2083,6 +2174,24 @@
             likeOverlay.style.opacity = 0;
             dislikeOverlay.style.opacity = 0;
         }
+        
+        function skipToResults() {
+            // Save session to Firebase before transitioning
+            saveSessionToFirebase();
+            
+            // Update liked count display
+            const likedCount = Object.keys(likedRestaurants).length;
+            resultsUI.likedCount.textContent = likedCount;
+            
+            // Generate share link
+            generateShareLink();
+            
+            // Transition to results view
+            showView(views.results);
+            
+            // Populate liked restaurants list
+            populateLikedRestaurantsList();
+        }
 
         window.swipeUI = swipeUI; window.resultsUI = resultsUI; window.matchesUI = matchesUI; window.sharedUI = sharedUI;
 
@@ -2101,6 +2210,7 @@
             swipeUI.nextPhotoBtn.addEventListener('click', showNextPhoto);
             swipeUI.dislikeButton.addEventListener('click', () => handleSwipe(false));
             swipeUI.likeButton.addEventListener('click', () => handleSwipe(true));
+            document.getElementById('skip-to-results-button').addEventListener('click', skipToResults);
             
             // Initialize swipe gestures when entering swipe view
             // We need to re-initialize after each view change to capture the current card
@@ -2126,8 +2236,18 @@
                 }
             });
             resultsUI.viewLikedButton.addEventListener('click', () => { 
+                console.log("View liked button clicked");
                 const isHidden = resultsUI.likedListContainer.classList.toggle('hidden'); 
+                console.log("Liked list is now:", isHidden ? "hidden" : "visible");
+                
+                // Update button text
                 resultsUI.viewLikedButton.textContent = isHidden ? 'View My Liked Food Places' : 'Hide My Liked Food Places'; 
+                
+                // If showing the list, make sure it's populated
+                if (!isHidden) {
+                    console.log("Populating liked restaurants list");
+                    populateLikedRestaurantsList();
+                }
             });
             resultsUI.copyLinkButton.addEventListener('click', copyShareLink);
             
