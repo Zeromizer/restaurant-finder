@@ -633,7 +633,7 @@
         /* --- Responsive design --- */
         @media (max-width: 580px) {
             .container {
-                padding: 10px;
+             padding: 10px;
                 padding-left: max(10px, env(safe-area-inset-left));
                 padding-right: max(10px, env(safe-area-inset-right));
                 width: 100%;
@@ -786,6 +786,128 @@
             margin-bottom: 3px;
             color: var(--dark-gray);
         }
+
+        /* Add styles for LLM insights */
+        .llm-insights {
+            margin-top: 10px;
+            background-color: #f8f8ff; /* Lighter background */
+            border-left: 2px solid #6c3fcc; /* Thinner accent line */
+            padding: 8px 10px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .llm-insights-title {
+            display: flex;
+            align-items: center;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #6c3fcc;
+            font-size: 12px;
+        }
+
+        .llm-insight-item {
+            margin-bottom: 4px;
+            padding-left: 4px;
+            position: relative;
+        }
+
+        .llm-insight-item:before {
+            content: "•";
+            position: absolute;
+            left: -8px;
+            color: #6c3fcc;
+        }
+
+        .llm-insights-compact {
+            margin-top: 6px;
+            margin-bottom: 4px;
+            padding: 6px 8px;
+            background-color: #f8f8ff; /* Lighter background */
+            border-left: 2px solid #6c3fcc; /* Thinner accent line */
+            border-radius: 3px;
+            font-size: 11px;
+        }
+
+        .llm-insights-compact p {
+            margin: 0;
+            color: #6c3fcc;
+            display: flex;
+            align-items: center;
+        }
+
+        .llm-insights-compact .ai-icon {
+            margin-right: 4px;
+            font-size: 12px;
+        }
+
+        .more-insights-badge {
+            margin-left: 4px;
+            background-color: #a67af4;
+            color: white;
+            border-radius: 10px;
+            padding: 0 6px;
+            font-size: 9px;
+            line-height: 1.4;
+        }
+
+        /* --- API Key Container --- */
+        .api-key-container {
+            margin-top: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+        }
+        .api-key-note {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .score-insight {
+            font-weight: bold;
+            background-color: #6c3fcc;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-top: 5px;
+            display: inline-block;
+        }
+
+        .score-badge {
+            margin-left: 6px;
+            background-color: #6c3fcc;
+            color: white;
+            border-radius: 10px;
+            padding: 1px 6px;
+            font-size: 9px;
+            line-height: 1.4;
+            font-weight: bold;
+        }
+
+        /* --- New Styles --- */
+        .llm-insight-paragraph {
+            margin: 5px 0;
+            line-height: 1.4;
+            color: #333;
+            font-size: 13px;
+        }
+
+        .llm-insight-item {
+            margin-bottom: 4px;
+            padding-left: 0;
+            position: relative;
+        }
+
+        .llm-insight-item:before {
+            content: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+         <div id="error-container" class="error-message hidden"></div>
+
     </style>
 </head>
 <body>
@@ -796,17 +918,17 @@
         <div id="search-view" class="view">
             <div class="header"> <h1>Restaurant Matcher</h1> <p>Find food places to enjoy with friends</p> </div>
             <form id="search-form" class="search-form">
-                <div class="form-group">
+                 <div class="form-group">
                     <label for="location">Location</label>
                     <div class="input-with-icon">
                         <span class="input-icon">📍</span>
                         <input id="location" type="text" placeholder="Enter city, neighborhood, or address" required />
-                    </div>
+                </div>
                     <button type="button" id="use-location-button" class="button icon-button location-button">
                         <span class="input-icon">📍</span> Use My Location
                     </button>
                 </div>
-                <div class="form-group">
+                 <div class="form-group">
                     <label for="radius">Search radius</label>
                     <div class="input-with-icon">
                         <span class="input-icon">🔍</span>
@@ -817,7 +939,7 @@
                             <option value="10000">10 km</option>
                             <option value="20000">20 km</option>
                         </select>
-                    </div>
+                 </div>
                 </div>
                 <div class="form-group">
                     <label for="price-level">Price range</label>
@@ -841,15 +963,12 @@
                 </div>
                 <div class="form-group">
                     <div class="checkbox-group">
-                        <input type="checkbox" id="high-rating-filter" name="high-rating-filter">
-                        <label for="high-rating-filter">Only highly-rated places (4.5+ stars)</label>
+                        <input type="checkbox" id="use-llm" name="use-llm">
+                        <label for="use-llm">Let our local AI recommend you!</label>
                     </div>
                 </div>
-                <div class="form-group">
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="popular-places-filter" name="popular-places-filter">
-                        <label for="popular-places-filter">Only popular places (4.2+ stars, 100+ reviews)</label>
-                    </div>
+                <div id="api-key-container" class="api-key-container hidden">
+                    <!-- This section is hidden and no longer used -->
                 </div>
                 <button type="submit" class="button icon-button" id="search-button">
                     <span class="input-icon">🔍</span> Find Food Places
@@ -919,7 +1038,7 @@
                     <h3>Share & Match</h3>
                 </div>
                 <div class="card-body">
-                    <!-- Session Code -->
+                 <!-- Session Code -->
                     <div class="form-group">
                         <label>Your session code</label>
                         <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 15px;">
@@ -928,32 +1047,32 @@
                         </div>
                     </div>
 
-                    <!-- Find Matches -->
+                 <!-- Find Matches -->
                     <div class="form-group">
                         <label for="friend-code">Enter friend's code</label>
                         <input id="friend-code" type="text" placeholder="Paste friend's code"/>
                     </div>
-                    <button class="button" id="find-matches-button">Find Matches</button>
+                 <button class="button" id="find-matches-button">Find Matches</button>
 
-                    <!-- Share Link Section -->
+                 <!-- Share Link Section -->
                     <div id="share-link-section" class="share-section">
                         <label for="share-link-input">Share your liked list</label>
-                        <div style="display: flex; align-items: center;">
-                            <input type="text" id="share-link-input" readonly placeholder="Generating share link...">
+                     <div style="display: flex; align-items: center;">
+                         <input type="text" id="share-link-input" readonly placeholder="Generating share link...">
                             <button id="copy-link-button" title="Copy Link" class="copy-button">📋</button>
-                        </div>
                     </div>
+                 </div>
                 </div>
                 <div class="card-footer">
-                    <!-- View Liked / Start Over -->
+                 <!-- View Liked / Start Over -->
                     <button type="button" class="button secondary" id="view-liked-button" style="margin-bottom: 10px;">View My Liked Food Places</button>
                     <button class="button tertiary" id="start-over-button">Start Over</button>
                 </div>
-            </div>
+             </div>
 
-            <div id="liked-restaurants-list" class="restaurant-list hidden">
-                <!-- Liked restaurants populated here -->
-            </div>
+             <div id="liked-restaurants-list" class="restaurant-list hidden">
+                 <!-- Liked restaurants populated here -->
+             </div>
         </div>
 
         <!-- Matches View -->
@@ -985,8 +1104,7 @@
         const radiusSelect = document.getElementById('radius');
         const priceLevelSelect = document.getElementById('price-level');
         const cuisineKeywordInput = document.getElementById('cuisine-keyword');
-        const highRatingFilter = document.getElementById('high-rating-filter');
-        const popularPlacesFilter = document.getElementById('popular-places-filter');
+        const useLLM = document.getElementById('use-llm');
         const searchButton = document.getElementById('search-button');
         const loadingText = document.getElementById('loading-text');
         const swipeUI = { 
@@ -1091,13 +1209,7 @@
          }
         function fetchRestaurants() {
             let loadingMessage = "Finding food places...";
-            if (highRatingFilter.checked && popularPlacesFilter.checked) {
-                loadingMessage = "Finding highly-rated popular food places...";
-            } else if (highRatingFilter.checked) {
-                loadingMessage = "Finding highly-rated food places...";
-            } else if (popularPlacesFilter.checked) {
-                loadingMessage = "Finding popular food places...";
-            }
+            
             setLoadingText(loadingMessage);
             showView(views.loading); hideError();
             const locationText = locationInput.value.trim(), radius = parseInt(radiusSelect.value), priceLevel = priceLevelSelect.value, keyword = cuisineKeywordInput.value.trim();
@@ -1116,8 +1228,8 @@
         function performNearbySearch(coords, radius, keyword, priceLevel) {
             const placesService = new google.maps.places.PlacesService(document.createElement('div'));
             
-            // Create an array of types to search for - restaurant, cafe, food, etc.
-            const establishmentTypes = ['restaurant', 'cafe', 'meal_takeaway', 'meal_delivery', 'bakery', 'food'];
+            // Reduced to only search for restaurant and food to minimize API calls
+            const establishmentTypes = ['restaurant', 'food'];
             
             // Create an array of promises to hold all the different search requests
             const searchPromises = establishmentTypes.map(type => {
@@ -1127,7 +1239,7 @@
                         radius: radius,
                         type: type
                     };
-            if (keyword) request.keyword = keyword;
+                    if (keyword) request.keyword = keyword;
                     if (priceLevel) {
                         const price = parseInt(priceLevel);
                         request.minPriceLevel = price;
@@ -1136,9 +1248,9 @@
                     
                     console.log(`Places Request for ${type}:`, request);
                     
-            placesService.nearbySearch(request, (results, status) => {
+                    placesService.nearbySearch(request, (results, status) => {
                         console.log(`Places Status for ${type}:`, status);
-                if (status === google.maps.places.PlacesServiceStatus.OK && results?.length > 0) {
+                        if (status === google.maps.places.PlacesServiceStatus.OK && results?.length > 0) {
                             resolve(results);
                         } else {
                             resolve([]); // Return empty array if no results or error
@@ -1147,42 +1259,10 @@
                 });
             });
             
-            // Additional keyword search for hawker centers, food courts, etc.
-            const keywordPromise = new Promise(resolve => {
-                if (!keyword || keyword.toLowerCase().includes('hawker') || keyword.toLowerCase().includes('food court')) {
-                    // Only add this search if no specific keyword is provided or if looking for hawkers
-                    const hawkerRequest = {
-                        location: new google.maps.LatLng(coords.lat, coords.lng),
-                        radius: radius,
-                        keyword: keyword || 'hawker center food court'
-                    };
-                    
-                    if (priceLevel) {
-                        const price = parseInt(priceLevel);
-                        hawkerRequest.minPriceLevel = price;
-                        hawkerRequest.maxPriceLevel = price;
-                    }
-                    
-                    console.log("Hawker Center Request:", hawkerRequest);
-                    
-                    placesService.nearbySearch(hawkerRequest, (results, status) => {
-                        console.log("Hawker Center Status:", status);
-                if (status === google.maps.places.PlacesServiceStatus.OK && results?.length > 0) {
-                            resolve(results);
-                        } else {
-                            resolve([]);
-                        }
-                    });
-                } else {
-                    resolve([]); // Skip this search if specific keyword provided
-                }
-            });
-            
-            // Combine all search promises
-            const allPromises = [...searchPromises, keywordPromise];
+            // Remove the additional keyword search for hawker centers to further reduce API calls
             
             // Wait for all searches to complete, then combine and deduplicate results
-            Promise.all(allPromises).then(resultsArrays => {
+            Promise.all(searchPromises).then(resultsArrays => {
                 // Flatten array of arrays and remove duplicates based on place_id
                 const allPlaces = [];
                 const placeIds = new Set();
@@ -1197,7 +1277,7 @@
                 console.log("Total unique places found:", allPlaces.length);
                 
                 if (allPlaces.length > 0) {
-                    const operational = allPlaces.filter(p => p.business_status === 'OPERATIONAL').slice(0, 20);
+                    const operational = allPlaces.filter(p => p.business_status === 'OPERATIONAL').slice(0, 30);
                     if (operational.length === 0) {
                         showError(`No operational food establishments found.`);
                         showView(views.search);
@@ -1370,23 +1450,210 @@
                      };
                  });
                  
-                 // Apply filters
-                 // Filter by high rating if the option is checked
-                 if (highRatingFilter.checked) {
-                     restaurants = restaurants.filter(place => place.ratingValue >= 4.5);
-                 }
-                 
-                 // Filter by popular places if the option is checked
-                 if (popularPlacesFilter.checked) {
-                     restaurants = restaurants.filter(place => place.ratingValue >= 4.2 && place.user_ratings_total >= 100);
-                 }
+                 // Removed filtering for high rating and popular places
                  
                  if (restaurants.length === 0) { showError('No food places found matching your criteria.'); showView(views.search); return; }
+                 
+                 // Add AI enhancement if user opts in - now this uses our custom scoring system
+                 if (useLLM.checked) {
+                     setLoadingText("Ranking and analyzing restaurants...");
+                     try {
+                         restaurants = await enhanceResultsWithLLM(restaurants, searchKeyword);
+                         console.log("Restaurants ranked with custom scoring system");
+                     } catch (error) {
+                         console.error("Ranking failed:", error);
+                         // Continue with normal results if ranking fails
+                     }
+                 }
+                 
                  sessionId = generateSessionId(); saveSessionToFirebase();
                  currentIndex = 0; likedRestaurants = {};
                  updateRestaurantDisplay(); showView(views.swipe);
              } catch (error) { console.error("Error processing results:", error); showError("Error loading details."); showView(views.search); }
          }
+
+        // Function to call the LLM service
+        async function callLLMService(restaurantData, userPreferences) {
+            // This function is now just a placeholder since we're using our own algorithm
+            // We're keeping it to maintain the code structure
+            return null;
+        }
+
+        // LLM-based restaurant enhancement and filtering
+        async function enhanceResultsWithLLM(restaurants, searchKeyword) {
+            // Prevent processing if no restaurants
+            if (!restaurants || restaurants.length === 0) return restaurants;
+            
+            // If AI enhancement isn't checked, just return the original restaurants
+            if (!useLLM.checked) {
+                return restaurants;
+            }
+            
+            // Store original order to maintain info
+            restaurants.forEach((r, index) => {
+                r.originalIndex = index;
+            });
+            
+            // Clone the array to avoid modifying the original directly
+            let rankedRestaurants = [...restaurants];
+            
+            // Get the cuisine keyword for scoring
+            const cuisineKeyword = cuisineKeywordInput.value.toLowerCase().trim();
+            
+            // Calculate scores based on the defined scoring system
+            rankedRestaurants = rankedRestaurants.map(restaurant => {
+                let score = 0;
+                
+                // 1. If the searched cuisine is found in the restaurant name, 15pts
+                if (cuisineKeyword && restaurant.name.toLowerCase().includes(cuisineKeyword)) {
+                    score += 15;
+                }
+                
+                // 2. If the searched cuisine is found in the reviews, 15pts
+                let cuisineInReviews = false;
+                if (cuisineKeyword && restaurant.reviews && restaurant.reviews.length > 0) {
+                    for (const review of restaurant.reviews) {
+                        if (review.text && review.text.toLowerCase().includes(cuisineKeyword)) {
+                            cuisineInReviews = true;
+                            break;
+                        }
+                    }
+                    if (cuisineInReviews) {
+                        score += 15;
+                    }
+                }
+                
+                // 3. Ratings multiply by 4. (example 4 stars = 16pts)
+                const rating = parseFloat(restaurant.ratingValue) || 0;
+                score += rating * 4;
+                
+                // 4. Reviews below 100 = 5pts, 101 to 500 = 10pts, 501 and above = 15pts
+                const reviewCount = restaurant.user_ratings_total || 0;
+                if (reviewCount <= 100) {
+                    score += 5;
+                } else if (reviewCount <= 500) {
+                    score += 10;
+                } else {
+                    score += 15;
+                }
+                
+                // 5. Last 3 recent reviews added together
+                if (restaurant.reviews && restaurant.reviews.length > 0) {
+                    // Sort by time if available, newest first
+                    const sortedReviews = [...restaurant.reviews].sort((a, b) => {
+                        if (a.time && b.time) {
+                            return b.time - a.time;
+                        }
+                        return 0;
+                    });
+                    
+                    const recentReviews = sortedReviews.slice(0, 3);
+                    let recentReviewScore = 0;
+                    
+                    for (const review of recentReviews) {
+                        if (review.rating) {
+                            recentReviewScore += review.rating;
+                        }
+                    }
+                    
+                    score += recentReviewScore;
+                }
+                
+                // Add score to restaurant object
+                restaurant.scoreDetails = {
+                    cuisineInName: cuisineKeyword && restaurant.name.toLowerCase().includes(cuisineKeyword) ? 15 : 0,
+                    cuisineInReviews: cuisineInReviews ? 15 : 0,
+                    ratingScore: rating * 4,
+                    reviewCountScore: reviewCount <= 100 ? 5 : (reviewCount <= 500 ? 10 : 15),
+                    recentReviewsScore: restaurant.reviews ? 
+                        restaurant.reviews.slice(0, 3).reduce((sum, review) => sum + (review.rating || 0), 0) : 0
+                };
+                restaurant.totalScore = score;
+                
+                // Generate insight based on score breakdown
+                restaurant.llmInsights = generateScoreInsights(restaurant, cuisineKeyword);
+                
+                return restaurant;
+            });
+            
+            // Sort by total score, highest first
+            rankedRestaurants.sort((a, b) => b.totalScore - a.totalScore);
+            
+            // Hide any error that might have shown earlier
+            hideError();
+            
+            return rankedRestaurants;
+        }
+
+        // Function to generate insights based on score breakdown
+        function generateScoreInsights(restaurant, cuisineKeyword) {
+            const insightPoints = [];
+            
+            // Singapore-specific cuisine insights
+            if (restaurant.scoreDetails.cuisineInName > 0) {
+                if (cuisineKeyword.toLowerCase().includes('hawker')) {
+                    insightPoints.push(`authentic hawker experience for ${cuisineKeyword}`);
+                } else if (cuisineKeyword.toLowerCase().includes('laksa') || 
+                          cuisineKeyword.toLowerCase().includes('chicken rice') || 
+                          cuisineKeyword.toLowerCase().includes('chilli crab')) {
+                    insightPoints.push(`known for authentic ${cuisineKeyword} - a local favorite`);
+                } else {
+                    insightPoints.push(`popular spot for ${cuisineKeyword} in Singapore`);
+                }
+            } else if (restaurant.scoreDetails.cuisineInReviews > 0) {
+                insightPoints.push(`locals recommend the ${cuisineKeyword} here`);
+            }
+            
+            // Singapore-specific rating insights
+            if (restaurant.ratingValue >= 4.5) {
+                insightPoints.push("shiok with top ratings among Singaporeans");
+            } else if (restaurant.ratingValue >= 4.0) {
+                insightPoints.push("can make it with good local ratings");
+            } else if (restaurant.ratingValue >= 3.5) {
+                insightPoints.push("not bad lah, decent reviews overall");
+            }
+            
+            // Singapore-specific popularity insights
+            if (restaurant.user_ratings_total > 500) {
+                insightPoints.push("super crowded with both locals and tourists");
+            } else if (restaurant.user_ratings_total > 100) {
+                insightPoints.push("got quite a following among Singaporeans");
+            }
+            
+            // Recent review insights with local flair
+            if (restaurant.reviews && restaurant.reviews.length > 0) {
+                const avgRecentRating = restaurant.scoreDetails.recentReviewsScore / Math.min(3, restaurant.reviews.length);
+                if (avgRecentRating >= 4.5) {
+                    insightPoints.push("wah, recent reviews all very good one");
+                } else if (avgRecentRating >= 4.0) {
+                    insightPoints.push("recent visitors say quite power lah");
+                }
+            }
+            
+            // Make sure we have at least one insight
+            if (insightPoints.length === 0) {
+                insightPoints.push("ranked based on local Singaporean preferences");
+            }
+            
+            // Convert array of points to a single sentence
+            // Take the top 2-3 insights and combine them
+            const selectedPoints = insightPoints.slice(0, Math.min(3, insightPoints.length));
+            
+            if (selectedPoints.length === 1) {
+                return [capitalizeFirstLetter(selectedPoints[0]) + "."];
+            } else if (selectedPoints.length === 2) {
+                return [capitalizeFirstLetter(selectedPoints[0]) + " and " + selectedPoints[1] + "."];
+            } else {
+                // For 3 points, use commas and "and"
+                return [capitalizeFirstLetter(selectedPoints[0]) + ", " + selectedPoints[1] + ", and " + selectedPoints[2] + "."];
+            }
+        }
+
+        // Helper function to capitalize first letter
+        function capitalizeFirstLetter(string) {
+            return string.charAt(0).toUpperCase() + string.slice(1);
+        }
+
         function getCuisineFromTypes(types) { 
             const typeMap = {
                 'cafe': 'Cafe',
@@ -1598,150 +1865,125 @@
                 mapLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(restaurant.name + ' ' + restaurant.address)}`;
             }
             
-            // Add travel times to meta row
-            const travelTimesContainer = document.getElementById('travel-times');
-            if (travelTimesContainer) {
-                travelTimesContainer.innerHTML = '';
-                
-                if (userCoordinates && restaurant.coordinates) {
-                    // Add travel times if available
+            // Update travel times if user coordinates are available
+            if (userCoordinates && restaurant.coordinates) {
+                const travelTimesContainer = document.getElementById('travel-times');
+                if (travelTimesContainer) {
+                    travelTimesContainer.innerHTML = '';
+                    
+                    // Show travel times if available
                     if (restaurant.travelTimes) {
                         if (restaurant.travelTimes.driving) {
                             const drivingBadge = document.createElement('span');
                             drivingBadge.className = 'travel-time-badge';
-                            drivingBadge.innerHTML = `🚗 ${restaurant.travelTimes.driving}`;
+                            drivingBadge.innerHTML = `<span class="travel-time-icon">🚗</span> ${restaurant.travelTimes.driving}`;
                             travelTimesContainer.appendChild(drivingBadge);
                         }
                         
                         if (restaurant.travelTimes.transit) {
                             const transitBadge = document.createElement('span');
                             transitBadge.className = 'travel-time-badge';
-                            transitBadge.innerHTML = `🚇 ${restaurant.travelTimes.transit}`;
+                            transitBadge.innerHTML = `<span class="travel-time-icon">🚇</span> ${restaurant.travelTimes.transit}`;
                             travelTimesContainer.appendChild(transitBadge);
                         }
                     } else {
-                        // Calculate travel times
-                        const loadingBadge = document.createElement('span');
-                        loadingBadge.className = 'travel-time-badge';
-                        loadingBadge.textContent = 'Calculating...';
-                        travelTimesContainer.appendChild(loadingBadge);
-                        
-                        // Get travel times asynchronously
+                        // If no travel times yet, calculate them
                         const origin = new google.maps.LatLng(userCoordinates.lat, userCoordinates.lng);
                         const destination = new google.maps.LatLng(
-                            restaurant.coordinates.lat, 
-                            restaurant.coordinates.lng
+                            restaurant.coordinates.lat, restaurant.coordinates.lng
                         );
                         
+                        // Show calculating indicator
+                        const calculatingBadge = document.createElement('span');
+                        calculatingBadge.className = 'travel-time-badge calculating';
+                        calculatingBadge.innerHTML = 'Calculating...';
+                        travelTimesContainer.appendChild(calculatingBadge);
+                        
+                        // Get travel times asynchronously
                         getTravelTimes(origin, destination).then(times => {
                             // Store for future use
                             restaurant.travelTimes = times;
                             
-                            // Clear and update
-                            if (travelTimesContainer) {
-                                travelTimesContainer.innerHTML = '';
-                                
-                                if (times.driving) {
-                                    const drivingBadge = document.createElement('span');
-                                    drivingBadge.className = 'travel-time-badge';
-                                    drivingBadge.innerHTML = `🚗 ${times.driving}`;
-                                    travelTimesContainer.appendChild(drivingBadge);
-                                }
-                                
-                                if (times.transit) {
-                                    const transitBadge = document.createElement('span');
-                                    transitBadge.className = 'travel-time-badge';
-                                    transitBadge.innerHTML = `🚇 ${times.transit}`;
-                                    travelTimesContainer.appendChild(transitBadge);
-                                }
+                            // Update display
+                            travelTimesContainer.innerHTML = '';
+                            
+                            if (times.driving) {
+                                const drivingBadge = document.createElement('span');
+                                drivingBadge.className = 'travel-time-badge';
+                                drivingBadge.innerHTML = `<span class="travel-time-icon">🚗</span> ${times.driving}`;
+                                travelTimesContainer.appendChild(drivingBadge);
                             }
-                        }).catch(err => {
-                            console.error("Error getting travel times:", err);
-                            if (travelTimesContainer) {
-                                travelTimesContainer.innerHTML = '';
+                            
+                            if (times.transit) {
+                                const transitBadge = document.createElement('span');
+                                transitBadge.className = 'travel-time-badge';
+                                transitBadge.innerHTML = `<span class="travel-time-icon">🚇</span> ${times.transit}`;
+                                travelTimesContainer.appendChild(transitBadge);
                             }
                         });
                     }
                 }
             }
             
-            // Update reviews section
+            // Display LLM insights if available
             const reviewsContainer = document.getElementById('restaurant-reviews');
             if (reviewsContainer) {
+                // Clear existing reviews
                 reviewsContainer.innerHTML = '<div class="reviews-title">Reviews</div>';
                 
-                // Add "NEW" badge if applicable
-                if (restaurant.isNew) {
-                    const newBadge = document.createElement('span');
-                    newBadge.className = 'new-sticker';
-                    newBadge.textContent = 'NEW';
-                    reviewsContainer.querySelector('.reviews-title').appendChild(newBadge);
+                // Add LLM insights if available
+                if (restaurant.llmInsights && restaurant.llmInsights.length > 0) {
+                    const insightsContainer = document.createElement('div');
+                    insightsContainer.className = 'llm-insights';
+                    
+                    // Update the title to "Local AI thinks..."
+                    const insightsTitle = document.createElement('div');
+                    insightsTitle.className = 'llm-insights-title';
+                    insightsTitle.innerHTML = 'Local AI thinks...';
+                    insightsContainer.appendChild(insightsTitle);
+                    
+                    // Show the insights as a paragraph instead of bullet points
+                    const insightParagraph = document.createElement('div');
+                    insightParagraph.className = 'llm-insight-paragraph';
+                    insightParagraph.textContent = restaurant.llmInsights[0];
+                    insightsContainer.appendChild(insightParagraph);
+                    
+                    reviewsContainer.appendChild(insightsContainer);
                 }
                 
                 // Add reviews if available
                 if (restaurant.reviews && restaurant.reviews.length > 0) {
-                    // Sort reviews by relevance (if available) or date
-                    const sortedReviews = [...restaurant.reviews].sort((a, b) => {
-                        // First by relevance if available
-                        if (a.relevance && b.relevance) {
-                            return b.relevance - a.relevance;
-                        }
-                        // Then by date (newest first)
-                        return (b.time || 0) - (a.time || 0);
-                    });
-                    
-                    // Add each review
-                    sortedReviews.forEach(review => {
-                        const reviewItem = document.createElement('div');
-                        reviewItem.className = 'review-item';
+                    restaurant.reviews.forEach(review => {
+                        const reviewEl = document.createElement('div');
+                        reviewEl.className = 'review-item';
                         
                         // Format date
-                        let dateText = '';
+                        let dateText = 'Unknown date';
                         if (review.time) {
                             const reviewDate = new Date(review.time * 1000);
                             dateText = reviewDate.toLocaleDateString();
                         }
                         
-                        // Create review header
+                        // Add review header
                         const reviewHeader = document.createElement('div');
-                        reviewHeader.className = 'review-header';
+                        reviewHeader.className = 'review-author';
+                        reviewHeader.innerHTML = `
+                            <div><strong>${review.author_name || 'Anonymous'}</strong></div>
+                            <div><span class="review-star">${review.rating}★</span> <span class="review-date">${dateText}</span></div>
+                        `;
                         
-                        const authorElement = document.createElement('div');
-                        authorElement.className = 'review-author';
-                        authorElement.textContent = review.author_name || 'Anonymous';
-                        
-                        const reviewMeta = document.createElement('div');
-                        reviewMeta.className = 'review-meta';
-                        
-                        // Add star rating
-                        const starElement = document.createElement('span');
-                        starElement.className = 'review-star';
-                        starElement.textContent = `${review.rating}★`;
-                        reviewMeta.appendChild(starElement);
-                        
-                        // Add date if available
-                        if (dateText) {
-                            const dateElement = document.createElement('span');
-                            dateElement.className = 'review-date';
-                            dateElement.textContent = dateText;
-                            reviewMeta.appendChild(dateElement);
-                        }
-                        
-                        reviewHeader.appendChild(authorElement);
-                        reviewHeader.appendChild(reviewMeta);
-                        reviewItem.appendChild(reviewHeader);
-                        
-                        // Create review text
+                        // Add review text
                         const reviewText = document.createElement('div');
                         reviewText.className = 'review-text';
                         
                         // Handle long reviews
                         const fullText = review.text || 'No review text';
+                        const isTruncated = fullText.length > 150;
                         
-                        if (fullText.length > 150) {
+                        if (isTruncated) {
                             reviewText.className = 'review-text truncated';
                             reviewText.setAttribute('data-full-text', fullText);
-                            reviewText.textContent = fullText.substring(0, 150);
+                            reviewText.textContent = fullText.substring(0, 150) + '...';
                             
                             reviewText.addEventListener('click', function() {
                                 if (this.classList.contains('truncated')) {
@@ -1749,7 +1991,7 @@
                                     this.classList.remove('truncated');
                                     this.classList.add('expanded');
                                 } else {
-                                    this.textContent = this.getAttribute('data-full-text').substring(0, 150);
+                                    this.textContent = this.getAttribute('data-full-text').substring(0, 150) + '...';
                                     this.classList.remove('expanded');
                                     this.classList.add('truncated');
                                 }
@@ -1758,18 +2000,42 @@
                             reviewText.textContent = fullText;
                         }
                         
-                        reviewItem.appendChild(reviewText);
-                        
-                        reviewsContainer.appendChild(reviewItem);
+                        // Add all elements to the review container
+                        reviewEl.appendChild(reviewHeader);
+                        reviewEl.appendChild(reviewText);
+                        reviewsContainer.appendChild(reviewEl);
                     });
                 } else {
-                    const noReviewsElement = document.createElement('p');
-                    noReviewsElement.textContent = 'No reviews available for this restaurant.';
-                    noReviewsElement.style.color = '#888';
-                    noReviewsElement.style.fontSize = '13px';
-                    reviewsContainer.appendChild(noReviewsElement);
+                    // No reviews message
+                    const noReviewsMsg = document.createElement('div');
+                    noReviewsMsg.className = 'review-item';
+                    noReviewsMsg.textContent = 'No reviews available for this restaurant.';
+                    reviewsContainer.appendChild(noReviewsMsg);
                 }
             }
+            
+            // Update 'NEW' badge if applicable
+            const newBadge = restaurant.isNew;
+            if (newBadge) {
+                const existingSticker = document.querySelector('.new-sticker');
+                if (!existingSticker) {
+                    const newSticker = document.createElement('div');
+                    newSticker.className = 'new-sticker';
+                    newSticker.textContent = 'NEW';
+                    const photoContainer = document.querySelector('.photo-container');
+                    if (photoContainer) {
+                        photoContainer.appendChild(newSticker);
+                    }
+                }
+            } else {
+                const existingSticker = document.querySelector('.new-sticker');
+                if (existingSticker) {
+                    existingSticker.remove();
+                }
+            }
+            
+            // Reset any swipe state
+            resetSwipeState();
         }
         function changePhoto(direction) { if (currentIndex >= restaurants.length) return; const r=restaurants[currentIndex]; const num=r.photoUrls.length; if(num<=1)return; r.currentPhotoIndex=(r.currentPhotoIndex+direction+num)%num; updateRestaurantDisplay(); }
         function handleSwipe(liked) {
@@ -1941,6 +2207,21 @@
             contentDiv.appendChild(metaRow);
             contentDiv.appendChild(addressElement);
             
+            // Add LLM insights if available (compact version)
+            if (r.llmInsights && r.llmInsights.length > 0) {
+                const insightsElement = document.createElement('div');
+                insightsElement.className = 'llm-insights-compact';
+                
+                // Update the text to include "Local AI thinks"
+                const insightText = document.createElement('p');
+                insightText.innerHTML = `Local AI thinks: ${r.llmInsights[0]}`;
+                insightsElement.appendChild(insightText);
+                
+                // Remove multiple insight badges - we now only have one insight
+                
+                contentDiv.appendChild(insightsElement);
+            }
+            
             // Add a review if available - now full width
             if (r.reviews && r.reviews.length > 0) {
                 const review = r.reviews[0]; // Use most relevant review
@@ -1975,7 +2256,7 @@
                 if (isTruncated) {
                     reviewText.className = 'review-text truncated';
                     reviewText.setAttribute('data-full-text', fullText);
-                    reviewText.textContent = fullText.substring(0, 150);
+                    reviewText.textContent = fullText.substring(0, 150) + '...';
                     
                     reviewText.addEventListener('click', function() {
                         if (this.classList.contains('truncated')) {
@@ -1983,7 +2264,7 @@
                             this.classList.remove('truncated');
                             this.classList.add('expanded');
                         } else {
-                            this.textContent = this.getAttribute('data-full-text').substring(0, 150);
+                            this.textContent = this.getAttribute('data-full-text').substring(0, 150) + '...';
                             this.classList.remove('expanded');
                             this.classList.add('truncated');
                         }
@@ -2085,8 +2366,10 @@
         // --- Utility & Event Listeners ---
         function resetApp() {
             locationInput.value=''; radiusSelect.value='2000'; priceLevelSelect.value=''; cuisineKeywordInput.value=''; resultsUI.friendCodeInput.value='';
-            highRatingFilter.checked = false; // Reset the high-rating filter
-            popularPlacesFilter.checked = false; // Reset the popular places filter
+            useLLM.checked = false; // Reset the smart ranking filter
+            
+            // API key handling removed since we're using a predefined key
+            
             restaurants=[]; currentIndex=0; likedRestaurants={}; sessionId=''; userCoordinates=null;
             resultsUI.likedListContainer.innerHTML = ''; resultsUI.likedListContainer.classList.add('hidden');
             resultsUI.viewLikedButton.textContent = 'View My Liked Food Places';
@@ -2239,15 +2522,19 @@
             setTimeout(initializeFirebase, 500);
             loadGoogleMapsScript();
             
+            // Remove API key related code since we're using a predefined key
+            // Keep the container hidden at all times
+            document.getElementById('api-key-container').classList.add('hidden');
+            
             // Search view events
             searchForm.addEventListener('submit', function(e) { e.preventDefault(); fetchRestaurants(); });
-            useLocationButton.addEventListener('click', getUserLocation);
+        useLocationButton.addEventListener('click', getUserLocation);
             
             // Swipe view events
             swipeUI.prevPhotoBtn.addEventListener('click', showPreviousPhoto);
             swipeUI.nextPhotoBtn.addEventListener('click', showNextPhoto);
-            swipeUI.dislikeButton.addEventListener('click', () => handleSwipe(false));
-            swipeUI.likeButton.addEventListener('click', () => handleSwipe(true));
+        swipeUI.dislikeButton.addEventListener('click', () => handleSwipe(false));
+        swipeUI.likeButton.addEventListener('click', () => handleSwipe(true));
             document.getElementById('skip-to-results-button').addEventListener('click', skipToResults);
             
             // Initialize swipe gestures when entering swipe view
@@ -2265,9 +2552,9 @@
             }
             
             // Results view events
-            resultsUI.findMatchesButton.addEventListener('click', findMatches);
-            resultsUI.startOverButton.addEventListener('click', resetApp);
-            resultsUI.copyCodeButton.addEventListener('click', copySessionId);
+        resultsUI.findMatchesButton.addEventListener('click', findMatches);
+        resultsUI.startOverButton.addEventListener('click', resetApp);
+        resultsUI.copyCodeButton.addEventListener('click', copySessionId);
             resultsUI.sessionId.addEventListener('click', () => { 
                 if (resultsUI.sessionId.textContent !== 'CODE') { 
                     window.getSelection().selectAllChildren(resultsUI.sessionId); 
@@ -2287,21 +2574,21 @@
                     populateLikedRestaurantsList();
                 }
             });
-            resultsUI.copyLinkButton.addEventListener('click', copyShareLink);
+        resultsUI.copyLinkButton.addEventListener('click', copyShareLink);
             
             // Other view events
-            matchesUI.startOverButton.addEventListener('click', resetApp);
-            sharedUI.startOverButton.addEventListener('click', resetApp);
-            
+        matchesUI.startOverButton.addEventListener('click', resetApp);
+        sharedUI.startOverButton.addEventListener('click', resetApp);
+
             // Check for shared link params
             const urlParams = new URLSearchParams(window.location.search);
             const shareId = urlParams.get('share');
-            
+
             if (shareId) {
                 // If share ID exists, prepare to handle it after Firebase is ready
                 setLoadingText("Loading shared list...");
                 showView(views.loading); // Show loading early
-                
+
                 const firebaseInitInterval = setInterval(() => {
                     // Check if Firebase is initialized
                     if (typeof firebase !== 'undefined' && firebase.apps.length > 0 && firebase.database()) {
@@ -2309,19 +2596,19 @@
                         console.log("Firebase ready, handling shared link...");
                         handleSharedLink(shareId); // Handle the link AFTER Firebase is ready
                     }
-                }, 150); // Check slightly less frequently
-                
-                // Timeout safeguard in case Firebase never loads/initializes
-                setTimeout(() => {
-                    // Check if we are still stuck on loading or haven't transitioned to shared view
-                    if(currentVisibleView === views.loading || currentVisibleView !== views.shared){
-                        clearInterval(firebaseInitInterval);
-                        console.error("Timeout waiting for Firebase initialization for shared link.");
-                        showError("Failed to initialize services to load shared list in time.");
-                        // Decide on a fallback view - Resetting is usually safest
-                        resetApp(); // Reset state and show search view
-                    }
-                }, 10000); // 10 second timeout
+                 }, 150); // Check slightly less frequently
+
+                 // Timeout safeguard in case Firebase never loads/initializes
+                 setTimeout(() => {
+                      // Check if we are still stuck on loading or haven't transitioned to shared view
+                      if(currentVisibleView === views.loading || currentVisibleView !== views.shared){
+                         clearInterval(firebaseInitInterval);
+                         console.error("Timeout waiting for Firebase initialization for shared link.");
+                         showError("Failed to initialize services to load shared list in time.");
+                         // Decide on a fallback view - Resetting is usually safest
+                         resetApp(); // Reset state and show search view
+                      }
+                 }, 10000); // 10 second timeout
             } else {
                 // Normal startup sequence: Just show the search view
                 showView(views.search);
