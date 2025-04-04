@@ -349,27 +349,6 @@
             object-fit: cover;
             display: block;
         }
-        .map-icon-link {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(255, 255, 255, 0.9);
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            z-index: 5;
-            text-decoration: none;
-            color: var(--secondary);
-            font-size: 20px;
-        }
-        .map-icon-link:hover {
-            background: white;
-            transform: scale(1.05);
-        }
         .photo-nav { 
             position: absolute;
             left: 0;
@@ -902,6 +881,16 @@
         .llm-insight-item:before {
             content: none;
         }
+
+        /* --- Address Links --- */
+        .address-link {
+            color: #3B82F6;
+            text-decoration: none;
+        }
+
+        .address-link:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -988,7 +977,6 @@
             <div class="restaurant-card">
                 <div class="photo-container">
                     <img class="card-img" id="restaurant-image" src="..." alt="Restaurant">
-                    <a href="#" class="map-icon-link" id="map-link" target="_blank" rel="noopener">🗺️</a>
                     <div class="photo-nav">
                         <button id="prev-photo" class="photo-nav-btn">❮</button>
                         <div id="photo-indicators"></div>
@@ -1240,6 +1228,7 @@
             if (cachedResults) {
                 console.log("Using cached nearby search results");
                 if (cachedResults.length > 0) {
+                    // Ensure the cached results have the necessary structure for further processing
                     const operational = cachedResults.filter(p => p.business_status === 'OPERATIONAL').slice(0, 30);
                     if (operational.length === 0) {
                         showError(`No operational food establishments found.`);
@@ -1247,6 +1236,23 @@
                         return;
                     }
                     console.log("Found", operational.length, "cached operational food establishments.");
+                    
+                    // Fix for geometry.location to ensure it has lat() and lng() methods
+                    // if they were stored as plain properties
+                    operational.forEach(place => {
+                        if (place.geometry && place.geometry.location) {
+                            // Create proper lat and lng methods if they don't exist
+                            if (typeof place.geometry.location.lat !== 'function') {
+                                const originalLat = place.geometry.location.lat;
+                                place.geometry.location.lat = function() { return originalLat; };
+                            }
+                            if (typeof place.geometry.location.lng !== 'function') {
+                                const originalLng = place.geometry.location.lng;
+                                place.geometry.location.lng = function() { return originalLng; };
+                            }
+                        }
+                    });
+                    
                     processRestaurantResults(operational, keyword);
                 } else {
                     showError(`No food establishments found${keyword ? ` for "${keyword}"` : ''}.`);
@@ -1259,7 +1265,7 @@
             const placesService = new google.maps.places.PlacesService(document.createElement('div'));
             
             // Reduced to only search for restaurant and food to minimize API calls
-            const establishmentTypes = ['restaurant', 'food'];
+            const establishmentTypes = ['restaurant', 'food', 'cafe'];
             
             // Create an array of promises to hold all the different search requests
             const searchPromises = establishmentTypes.map(type => {
@@ -1269,7 +1275,7 @@
                         radius: radius,
                         type: type
                     };
-                    if (keyword) request.keyword = keyword;
+            if (keyword) request.keyword = keyword;
                     if (priceLevel) {
                         const price = parseInt(priceLevel);
                         request.minPriceLevel = price;
@@ -1278,9 +1284,9 @@
                     
                     console.log(`Places Request for ${type}:`, request);
                     
-                    placesService.nearbySearch(request, (results, status) => {
+            placesService.nearbySearch(request, (results, status) => {
                         console.log(`Places Status for ${type}:`, status);
-                        if (status === google.maps.places.PlacesServiceStatus.OK && results?.length > 0) {
+                if (status === google.maps.places.PlacesServiceStatus.OK && results?.length > 0) {
                             resolve(results);
                         } else {
                             resolve([]); // Return empty array if no results or error
@@ -1350,7 +1356,31 @@
             
             // If all details are in cache, return immediately
             if (uncachedPlaceIds.length === 0) {
-                return Promise.resolve(placeIds.map(id => cachedDetails[id]));
+                // We need to convert cached photo objects to the format expected by the rest of the code
+                return Promise.resolve(placeIds.map(id => {
+                    const cachedDetail = cachedDetails[id];
+                    // Process cached photos to ensure compatibility
+                    if (cachedDetail && cachedDetail.photos) {
+                        // Convert the serialized photo objects to match the structure
+                        // expected by the rest of the application
+                        cachedDetail.photos = cachedDetail.photos.map(photo => {
+                            if (photo.url) {
+                                // Create a photo-like object with a getUrl method that works with any params
+                                return {
+                                    getUrl: (options) => photo.url,
+                                    width: photo.width || 1000,
+                                    height: photo.height || 800,
+                                    html_attributions: photo.html_attributions || []
+                                };
+                            }
+                            return photo;
+                        });
+                    } else if (cachedDetail) {
+                        // Ensure photos is an array even if empty
+                        cachedDetail.photos = [];
+                    }
+                    return cachedDetail;
+                }));
             }
             
             // Otherwise fetch only the uncached place details
@@ -1499,8 +1529,40 @@
                  restaurants = results.map(place => {
                      const placeDetails = detailsMap[place.place_id] || { photos: [], reviews: [], isNew: false };
                      const placePhotos = placeDetails.photos;
-                     const photoUrls = placePhotos.slice(0, 5).map(p => p.getUrl ? p.getUrl({ maxWidth: 800, maxHeight: 600 }) : null).filter(url => url);
-                     if (photoUrls.length === 0) { photoUrls.push("https://placehold.co/800x600/FF5864/white?text=No+Image"); }
+                     
+                     // Improved photo URL extraction that handles both Google Maps photo objects and cached photo data
+                     const photoUrls = [];
+                     
+                     // First try to get photos from placeDetails
+                     if (placePhotos && placePhotos.length > 0) {
+                         for (let i = 0; i < Math.min(5, placePhotos.length); i++) {
+                             const photo = placePhotos[i];
+                             if (photo.getUrl) {
+                                 photoUrls.push(photo.getUrl({ maxWidth: 800, maxHeight: 600 }));
+                             } else if (photo.url) {
+                                 // Use the direct URL from cached photo
+                                 photoUrls.push(photo.url);
+                             }
+                         }
+                     }
+                     
+                     // If no photos from details, try to get photo from the place object directly (from nearby search cache)
+                     if (photoUrls.length === 0 && place.photos && place.photos.length > 0) {
+                         // Try to use direct_url from cached nearby search
+                         if (place.photos[0].direct_url) {
+                             photoUrls.push(place.photos[0].direct_url);
+                         } 
+                         // Or try using the Google Photos object if available
+                         else if (typeof place.photos[0].getUrl === 'function') {
+                             photoUrls.push(place.photos[0].getUrl({ maxWidth: 800, maxHeight: 600 }));
+                         }
+                     }
+                     
+                     // If still no photos, use placeholder
+                     if (photoUrls.length === 0) {
+                         photoUrls.push("https://placehold.co/800x600/FF5864/white?text=No+Image");
+                     }
+                     
                      let displayCuisine = searchKeyword ? searchKeyword.trim().toLowerCase().replace(/\b\w/g, l => l.toUpperCase()) : getCuisineFromTypes(place.types || []);
                      return { 
                          id: place.place_id, 
@@ -1508,8 +1570,8 @@
                          address: place.vicinity || "Address unavailable", 
                          cuisine: displayCuisine, 
                          rating: place.rating ? `${place.rating}★ (${place.user_ratings_total || 0})` : "Not rated", 
-                         ratingValue: place.rating || 0, // Add actual numeric rating for filtering
-                         user_ratings_total: place.user_ratings_total || 0, // Store total rating count for filtering
+                         ratingValue: place.rating || 0,
+                         user_ratings_total: place.user_ratings_total || 0,
                          priceLevel: place.price_level ?? 0, 
                          photoUrls, 
                          currentPhotoIndex: 0,
@@ -1948,15 +2010,10 @@
             swipeUI.name.textContent = restaurant.name;
             swipeUI.rating.innerHTML = `<span class="meta-icon">⭐</span> ${restaurant.rating}`;
             swipeUI.price.innerHTML = `<span class="meta-icon">💰</span> ${restaurant.priceLevel > 0 ? '$'.repeat(restaurant.priceLevel) : 'N/A'}`;
-            swipeUI.address.innerHTML = `<span class="meta-icon">📍</span> ${restaurant.address}`;
-            
-            // Update Google Maps link
-            const mapLink = document.getElementById('map-link');
-            if (mapLink && restaurant.id) {
-                mapLink.href = `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${restaurant.id}`;
-            } else if (mapLink) {
-                mapLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(restaurant.name + ' ' + restaurant.address)}`;
-            }
+            swipeUI.address.innerHTML = `<span class="meta-icon">📍</span> <a href="${restaurant.id ? 
+                `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${restaurant.id}` : 
+                `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(restaurant.name + ' ' + restaurant.address)}`
+            }" target="_blank" rel="noopener noreferrer" class="address-link">${restaurant.address}</a>`;
             
             // Update travel times if user coordinates are available
             if (userCoordinates && restaurant.coordinates) {
@@ -2236,16 +2293,16 @@
             const actionsDiv = document.createElement('div');
             actionsDiv.className = 'restaurant-item-actions';
             
-            // Create Google Maps icon link
-            const mapsLink = document.createElement('a');
-            mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(r.name + ' ' + (r.address || ''))}`;
-            mapsLink.className = 'map-icon';
-            mapsLink.innerHTML = '🗺️';
-            mapsLink.target = '_blank';
-            mapsLink.rel = 'noopener noreferrer';
-            mapsLink.title = 'View on Google Maps';
-            
-            actionsDiv.appendChild(mapsLink);
+            // Remove the Google Maps icon link
+            // const mapsLink = document.createElement('a');
+            // mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(r.name + ' ' + (r.address || ''))}`;
+            // mapsLink.className = 'map-icon';
+            // mapsLink.innerHTML = '🗺️';
+            // mapsLink.target = '_blank';
+            // mapsLink.rel = 'noopener noreferrer';
+            // mapsLink.title = 'View on Google Maps';
+            // 
+            // actionsDiv.appendChild(mapsLink);
             
             // Add travel times below image if available
             if (r.travelTimes) {
@@ -2293,7 +2350,10 @@
             
             // Create address
             const addressElement = document.createElement('p');
-            addressElement.innerHTML = `<span class="meta-icon">📍</span> ${r.address}`;
+            addressElement.innerHTML = `<span class="meta-icon">📍</span> <a href="${r.id ? 
+                `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${r.id}` : 
+                `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(r.name + ' ' + r.address)}`
+            }" target="_blank" rel="noopener noreferrer" class="address-link">${r.address}</a>`;
             
             // Add elements to content div
             contentDiv.appendChild(nameElement);
@@ -2427,19 +2487,33 @@
         function generateSessionId() { return Math.random().toString(36).substring(2, 10).toUpperCase(); }
         function saveSessionToFirebase() {
             if(typeof firebase==='undefined'||!firebase.apps.length||!sessionId)return;
-            const restaurantsToSave = restaurants.map(r => ({ 
-                id: r.id, 
-                name: r.name, 
-                address: r.address, 
-                cuisine: r.cuisine, 
-                rating: r.rating, 
-                priceLevel: r.priceLevel, 
-                photoUrls: (r.photoUrls && r.photoUrls.length > 0) ? [r.photoUrls[0]] : [],
-                reviews: r.reviews || [],
-                isNew: r.isNew || false,
-                coordinates: r.coordinates || null,
-                travelTimes: r.travelTimes || null
-            }));
+            const restaurantsToSave = restaurants.map(r => {
+                // Create a clean object with no undefined values
+                let cleanCoordinates = null;
+                if (r.coordinates) {
+                    const lat = typeof r.coordinates.lat === 'function' ? r.coordinates.lat() : r.coordinates.lat;
+                    const lng = typeof r.coordinates.lng === 'function' ? r.coordinates.lng() : r.coordinates.lng;
+                    
+                    // Only set coordinates if both values are valid numbers
+                    if (lat !== undefined && lng !== undefined && !isNaN(lat) && !isNaN(lng)) {
+                        cleanCoordinates = { lat, lng };
+                    }
+                }
+                
+                return { 
+                    id: r.id, 
+                    name: r.name, 
+                    address: r.address, 
+                    cuisine: r.cuisine, 
+                    rating: r.rating, 
+                    priceLevel: r.priceLevel, 
+                    photoUrls: (r.photoUrls && r.photoUrls.length > 0) ? [r.photoUrls[0]] : [],
+                    reviews: r.reviews || [],
+                    isNew: r.isNew || false,
+                    coordinates: cleanCoordinates,
+                    travelTimes: r.travelTimes || null
+                };
+            });
             const sessionData = { restaurants: restaurantsToSave, timestamp: firebase.database.ServerValue.TIMESTAMP, likes: {} };
             firebase.database().ref('sessions/'+sessionId).set(sessionData).then(() => console.log("Session saved:", sessionId)).catch(e=>console.error("Session save error:",e));
         }
@@ -2898,11 +2972,47 @@
 
             // Cache nearby search results
             cacheNearbySearch(searchKey, results) {
-                this.cache.nearbySearches[searchKey] = {
-                    data: results,
-                    timestamp: Date.now()
-                };
-                this.saveToStorage();
+                try {
+                    // We need to ensure we're not trying to cache Google Maps objects directly
+                    // which are not serializable. Create a clean copy with only the data we need.
+                    const serializableResults = results.map(place => {
+                        return {
+                            place_id: place.place_id,
+                            name: place.name,
+                            vicinity: place.vicinity,
+                            rating: place.rating,
+                            user_ratings_total: place.user_ratings_total,
+                            price_level: place.price_level,
+                            types: place.types ? [...place.types] : [],
+                            business_status: place.business_status,
+                            // Include a basic photo reference if available
+                            photos: place.photos && place.photos.length > 0 ? [{
+                                photo_reference: place.photos[0].photo_reference,
+                                // Store a direct URL if possible
+                                direct_url: typeof place.photos[0].getUrl === 'function' ? 
+                                    place.photos[0].getUrl({ maxWidth: 800, maxHeight: 600 }) : null
+                            }] : null,
+                            // Handle geometry coordinates in a safe way
+                            geometry: place.geometry ? {
+                                location: {
+                                    lat: typeof place.geometry.location.lat === 'function' ? 
+                                        place.geometry.location.lat() : place.geometry.location.lat,
+                                    lng: typeof place.geometry.location.lng === 'function' ? 
+                                        place.geometry.location.lng() : place.geometry.location.lng
+                                }
+                            } : null
+                        };
+                    });
+                    
+                    this.cache.nearbySearches[searchKey] = {
+                        data: serializableResults,
+                        timestamp: Date.now()
+                    };
+                    this.saveToStorage();
+                } catch (error) {
+                    console.error('Error caching nearby search results:', error);
+                    // Continue without caching if there's an error
+                }
             }
 
             // Get cached place details
@@ -2917,11 +3027,45 @@
 
             // Cache place details
             cachePlaceDetails(placeId, details) {
-                this.cache.placeDetails[placeId] = {
-                    data: details,
-                    timestamp: Date.now()
-                };
-                this.saveToStorage();
+                try {
+                    // Create a serializable version of the photos array
+                    let serializablePhotos = [];
+                    if (details.photos && details.photos.length) {
+                        serializablePhotos = details.photos.map(photo => {
+                            // Store the direct URL at a reasonable size
+                            let directUrl = null;
+                            if (typeof photo.getUrl === 'function') {
+                                directUrl = photo.getUrl({ maxWidth: 1000, maxHeight: 1000 });
+                            } else if (photo.url) {
+                                directUrl = photo.url;
+                            }
+                            
+                            return { 
+                                url: directUrl,
+                                width: photo.width || 1000,
+                                height: photo.height || 800,
+                                html_attributions: photo.html_attributions || []
+                            };
+                        }).filter(p => p !== null && p.url);
+                    }
+                    
+                    // Create a serializable copy of details
+                    const serializableDetails = {
+                        placeId: details.placeId,
+                        isNew: details.isNew,
+                        reviews: details.reviews || [],
+                        photos: serializablePhotos
+                    };
+                    
+                    this.cache.placeDetails[placeId] = {
+                        data: serializableDetails,
+                        timestamp: Date.now()
+                    };
+                    this.saveToStorage();
+                } catch (error) {
+                    console.error('Error caching place details:', error);
+                    // Continue without caching if there's an error
+                }
             }
             
             // Get cached travel times
