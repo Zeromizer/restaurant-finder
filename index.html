@@ -1226,6 +1226,36 @@
             } else { showError("Please provide a location."); showView(views.search); }
         }
         function performNearbySearch(coords, radius, keyword, priceLevel) {
+            // Generate cache key based on search parameters
+            const cacheKey = JSON.stringify({
+                lat: coords.lat.toFixed(6),
+                lng: coords.lng.toFixed(6),
+                radius,
+                keyword: keyword || '',
+                priceLevel: priceLevel || ''
+            });
+            
+            // Check cache first
+            const cachedResults = window.placesCache?.getCachedNearbySearch(cacheKey);
+            if (cachedResults) {
+                console.log("Using cached nearby search results");
+                if (cachedResults.length > 0) {
+                    const operational = cachedResults.filter(p => p.business_status === 'OPERATIONAL').slice(0, 30);
+                    if (operational.length === 0) {
+                        showError(`No operational food establishments found.`);
+                        showView(views.search);
+                        return;
+                    }
+                    console.log("Found", operational.length, "cached operational food establishments.");
+                    processRestaurantResults(operational, keyword);
+                } else {
+                    showError(`No food establishments found${keyword ? ` for "${keyword}"` : ''}.`);
+                    showView(views.search);
+                }
+                return;
+            }
+            
+            // If not in cache, proceed with API call
             const placesService = new google.maps.places.PlacesService(document.createElement('div'));
             
             // Reduced to only search for restaurant and food to minimize API calls
@@ -1276,6 +1306,11 @@
                 
                 console.log("Total unique places found:", allPlaces.length);
                 
+                // Cache the results
+                if (allPlaces.length > 0) {
+                    window.placesCache?.cacheNearbySearch(cacheKey, allPlaces);
+                }
+                
                 if (allPlaces.length > 0) {
                     const operational = allPlaces.filter(p => p.business_status === 'OPERATIONAL').slice(0, 30);
                     if (operational.length === 0) {
@@ -1297,7 +1332,29 @@
         }
         function getPlaceDetails(placeIds) {
             const placesService = new google.maps.places.PlacesService(document.createElement('div'));
-            const promises = placeIds.map(id => new Promise(res => placesService.getDetails({ 
+            
+            // Check which place IDs are already in the cache
+            const cachedDetails = {};
+            const uncachedPlaceIds = [];
+            
+            placeIds.forEach(id => {
+                const cachedDetail = window.placesCache?.getCachedPlaceDetails(id);
+                if (cachedDetail) {
+                    cachedDetails[id] = cachedDetail;
+                } else {
+                    uncachedPlaceIds.push(id);
+                }
+            });
+            
+            console.log(`Using ${Object.keys(cachedDetails).length} cached place details and fetching ${uncachedPlaceIds.length} new ones`);
+            
+            // If all details are in cache, return immediately
+            if (uncachedPlaceIds.length === 0) {
+                return Promise.resolve(placeIds.map(id => cachedDetails[id]));
+            }
+            
+            // Otherwise fetch only the uncached place details
+            const promises = uncachedPlaceIds.map(id => new Promise(res => placesService.getDetails({ 
                 placeId: id, 
                 fields: [
                     'photos', 'name', 'reviews', 'opening_hours', 
@@ -1401,14 +1458,32 @@
                     // Most places don't have their opening date in the API
                 }
                 
-                res({ 
+                const detailResult = { 
                     placeId: id, 
                     photos: (s === google.maps.places.PlacesServiceStatus.OK && d?.photos) ? d.photos : [],
                     reviews: reviews,
                     isNew: isNew
-                });
+                };
+                
+                // Cache the place details
+                window.placesCache?.cachePlaceDetails(id, detailResult);
+                
+                res(detailResult);
             })));
-            return Promise.all(promises);
+            
+            // Combine cached and newly fetched details
+            return Promise.all(promises).then(newDetails => {
+                const allDetails = [...newDetails];
+                
+                // Add cached details to the result
+                placeIds.forEach(id => {
+                    if (cachedDetails[id] && !allDetails.some(d => d.placeId === id)) {
+                        allDetails.push(cachedDetails[id]);
+                    }
+                });
+                
+                return allDetails;
+            });
         }
         async function processRestaurantResults(results, searchKeyword) {
              try {
@@ -1703,6 +1778,19 @@
                 return { driving: null, transit: null };
             }
             
+            // Generate a unique key for this origin-destination pair
+            const originStr = `${origin.lat().toFixed(6)},${origin.lng().toFixed(6)}`;
+            const destStr = `${destination.lat().toFixed(6)},${destination.lng().toFixed(6)}`;
+            const cacheKey = `${originStr}|${destStr}`;
+            
+            // Check if we have cached travel times
+            const cachedTimes = window.placesCache?.getCachedTravelTimes(cacheKey);
+            if (cachedTimes) {
+                console.log('Using cached travel times');
+                return cachedTimes;
+            }
+            
+            // If not in cache, calculate travel times
             const service = new google.maps.DistanceMatrixService();
             
             try {
@@ -1749,7 +1837,12 @@
                                     transitResult.rows[0]?.elements[0]?.status === "OK" ? 
                                     transitResult.rows[0].elements[0].duration.text : null;
                 
-                return { driving: drivingTime, transit: transitTime };
+                const travelTimes = { driving: drivingTime, transit: transitTime };
+                
+                // Cache the travel times
+                window.placesCache?.cacheTravelTimes(cacheKey, travelTimes);
+                
+                return travelTimes;
             } catch (error) {
                 console.error("Error calculating travel times:", error);
                 return { driving: null, transit: null };
@@ -2670,5 +2763,198 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js" defer></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js" defer></script>
 
+    <!-- Place API Caching Script -->
+    <script>
+        // Cache system to reduce API calls
+        class PlacesCache {
+            constructor() {
+                this.storageKey = 'restaurantFinderCache';
+                this.expiryTime = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+                this.cache = this.loadFromStorage();
+            }
+
+            // Load cache from localStorage
+            loadFromStorage() {
+                try {
+                    const cachedData = localStorage.getItem(this.storageKey);
+                    if (cachedData) {
+                        const parsed = JSON.parse(cachedData);
+                        // Clean expired entries
+                        this.cleanExpiredEntries(parsed);
+                        return parsed;
+                    }
+                } catch (error) {
+                    console.error('Error loading cache:', error);
+                }
+                return { 
+                    nearbySearches: {}, 
+                    placeDetails: {}, 
+                    travelTimes: {},  // Add travel times cache
+                    lastCleanup: Date.now() 
+                };
+            }
+
+            // Save cache to localStorage
+            saveToStorage() {
+                try {
+                    localStorage.setItem(this.storageKey, JSON.stringify(this.cache));
+                } catch (error) {
+                    console.error('Error saving cache:', error);
+                    // If storage is full, clear it and try again
+                    if (error.name === 'QuotaExceededError') {
+                        this.clearOldEntries(75); // Clear 75% of old entries
+                        try {
+                            localStorage.setItem(this.storageKey, JSON.stringify(this.cache));
+                        } catch (innerError) {
+                            console.error('Still cannot save cache after cleanup:', innerError);
+                        }
+                    }
+                }
+            }
+
+            // Clean expired entries
+            cleanExpiredEntries(cacheObj) {
+                const now = Date.now();
+                // Only run cleanup once a day
+                if (cacheObj.lastCleanup && now - cacheObj.lastCleanup < 24 * 60 * 60 * 1000) {
+                    return;
+                }
+
+                // Clean nearby searches
+                for (const key in cacheObj.nearbySearches) {
+                    if (now - cacheObj.nearbySearches[key].timestamp > this.expiryTime) {
+                        delete cacheObj.nearbySearches[key];
+                    }
+                }
+
+                // Clean place details
+                for (const key in cacheObj.placeDetails) {
+                    if (now - cacheObj.placeDetails[key].timestamp > this.expiryTime) {
+                        delete cacheObj.placeDetails[key];
+                    }
+                }
+                
+                // Clean travel times
+                if (cacheObj.travelTimes) {
+                    for (const key in cacheObj.travelTimes) {
+                        if (now - cacheObj.travelTimes[key].timestamp > this.expiryTime) {
+                            delete cacheObj.travelTimes[key];
+                        }
+                    }
+                } else {
+                    cacheObj.travelTimes = {};
+                }
+
+                cacheObj.lastCleanup = now;
+            }
+
+            // Clear a percentage of oldest entries when storage is full
+            clearOldEntries(percentage) {
+                const sortedNearby = Object.entries(this.cache.nearbySearches)
+                    .sort((a, b) => a[1].timestamp - b[1].timestamp);
+                
+                const sortedDetails = Object.entries(this.cache.placeDetails)
+                    .sort((a, b) => a[1].timestamp - b[1].timestamp);
+                
+                const sortedTravelTimes = Object.entries(this.cache.travelTimes || {})
+                    .sort((a, b) => a[1].timestamp - b[1].timestamp);
+                
+                // Calculate how many to remove
+                const nearbyToRemove = Math.floor(sortedNearby.length * (percentage / 100));
+                const detailsToRemove = Math.floor(sortedDetails.length * (percentage / 100));
+                const travelTimesToRemove = Math.floor(sortedTravelTimes.length * (percentage / 100));
+                
+                // Remove oldest entries
+                for (let i = 0; i < nearbyToRemove; i++) {
+                    if (sortedNearby[i]) {
+                        delete this.cache.nearbySearches[sortedNearby[i][0]];
+                    }
+                }
+                
+                for (let i = 0; i < detailsToRemove; i++) {
+                    if (sortedDetails[i]) {
+                        delete this.cache.placeDetails[sortedDetails[i][0]];
+                    }
+                }
+                
+                for (let i = 0; i < travelTimesToRemove; i++) {
+                    if (sortedTravelTimes[i]) {
+                        delete this.cache.travelTimes[sortedTravelTimes[i][0]];
+                    }
+                }
+                
+                console.log(`Cleared ${nearbyToRemove} nearby searches, ${detailsToRemove} place details, and ${travelTimesToRemove} travel times from cache`);
+            }
+
+            // Get cached nearby search results
+            getCachedNearbySearch(searchKey) {
+                const cachedResult = this.cache.nearbySearches[searchKey];
+                if (cachedResult && Date.now() - cachedResult.timestamp < this.expiryTime) {
+                    console.log('Using cached nearby search results for:', searchKey);
+                    return cachedResult.data;
+                }
+                return null;
+            }
+
+            // Cache nearby search results
+            cacheNearbySearch(searchKey, results) {
+                this.cache.nearbySearches[searchKey] = {
+                    data: results,
+                    timestamp: Date.now()
+                };
+                this.saveToStorage();
+            }
+
+            // Get cached place details
+            getCachedPlaceDetails(placeId) {
+                const cachedResult = this.cache.placeDetails[placeId];
+                if (cachedResult && Date.now() - cachedResult.timestamp < this.expiryTime) {
+                    console.log('Using cached place details for:', placeId);
+                    return cachedResult.data;
+                }
+                return null;
+            }
+
+            // Cache place details
+            cachePlaceDetails(placeId, details) {
+                this.cache.placeDetails[placeId] = {
+                    data: details,
+                    timestamp: Date.now()
+                };
+                this.saveToStorage();
+            }
+            
+            // Get cached travel times
+            getCachedTravelTimes(originDestKey) {
+                if (!this.cache.travelTimes) {
+                    this.cache.travelTimes = {};
+                    return null;
+                }
+                
+                const cachedResult = this.cache.travelTimes[originDestKey];
+                if (cachedResult && Date.now() - cachedResult.timestamp < this.expiryTime) {
+                    console.log('Using cached travel times for:', originDestKey);
+                    return cachedResult.data;
+                }
+                return null;
+            }
+            
+            // Cache travel times
+            cacheTravelTimes(originDestKey, times) {
+                if (!this.cache.travelTimes) {
+                    this.cache.travelTimes = {};
+                }
+                
+                this.cache.travelTimes[originDestKey] = {
+                    data: times,
+                    timestamp: Date.now()
+                };
+                this.saveToStorage();
+            }
+        }
+
+        // Create global cache instance
+        window.placesCache = new PlacesCache();
+    </script>
 </body>
 </html>
