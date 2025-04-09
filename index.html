@@ -906,6 +906,18 @@
         .address-link:hover {
             text-decoration: underline;
         }
+        
+        /* API Usage Stats */
+        .api-usage-stats {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f8f8ff;
+            border-radius: 4px;
+            border-left: 2px solid #6c3fcc;
+            font-size: 12px;
+            color: #6c3fcc;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -920,7 +932,7 @@
 
         <!-- Search View -->
         <div id="search-view" class="view">
-            <div class="header"> <h1>Restaurant Matcher</h1> <p>Find food places to enjoy with friends</p> </div>
+            <div class="header"> <h1>Restaurant Matcher</h1> <p>Find food places with our AI-powered ranking system</p> </div>
             <form id="search-form" class="search-form">
                  <div class="form-group">
                     <label for="location">Location</label>
@@ -965,12 +977,6 @@
                         <input type="text" id="cuisine-keyword" name="cuisine-keyword" placeholder="e.g., Italian, Pizza, Cafe, Hawker">
                     </div>
                 </div>
-                <div class="form-group">
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="use-llm" name="use-llm">
-                        <label for="use-llm">Let our local AI recommend you!</label>
-                    </div>
-                </div>
                 <div id="api-key-container" class="api-key-container hidden">
                     <!-- This section is hidden and no longer used -->
                 </div>
@@ -978,6 +984,9 @@
                     <span class="input-icon">🔍</span> Find Food Places
                 </button>
             </form>
+            <div id="api-usage-stats" class="api-usage-stats">
+                <p>API Usage Stats: <span id="api-usage-display">Loading...</span></p>
+            </div>
         </div>
 
         <!-- Loading View -->
@@ -1106,7 +1115,6 @@
         const radiusSelect = document.getElementById('radius');
         const priceLevelSelect = document.getElementById('price-level');
         const cuisineKeywordInput = document.getElementById('cuisine-keyword');
-        const useLLM = document.getElementById('use-llm');
         const searchButton = document.getElementById('search-button');
         const loadingText = document.getElementById('loading-text');
         const swipeUI = { 
@@ -1605,16 +1613,14 @@
                  
                  if (restaurants.length === 0) { showError('No food places found matching your criteria.'); showView(views.search); return; }
                  
-                 // Add AI enhancement if user opts in - now this uses our custom scoring system
-                 if (useLLM.checked) {
-                     setLoadingText("Ranking and analyzing restaurants...");
-                     try {
-                         restaurants = await enhanceResultsWithLLM(restaurants, searchKeyword);
-                         console.log("Restaurants ranked with custom scoring system");
-                     } catch (error) {
-                         console.error("Ranking failed:", error);
-                         // Continue with normal results if ranking fails
-                     }
+                 // Always apply custom scoring and ranking
+                 setLoadingText("Ranking and analyzing restaurants...");
+                 try {
+                     restaurants = await enhanceResultsWithLLM(restaurants, searchKeyword);
+                     console.log("Restaurants ranked with custom scoring system");
+                 } catch (error) {
+                     console.error("Ranking failed:", error);
+                     // Continue with normal results if ranking fails
                  }
                  
                  sessionId = generateSessionId(); saveSessionToFirebase();
@@ -1634,11 +1640,6 @@
         async function enhanceResultsWithLLM(restaurants, searchKeyword) {
             // Prevent processing if no restaurants
             if (!restaurants || restaurants.length === 0) return restaurants;
-            
-            // If AI enhancement isn't checked, just return the original restaurants
-            if (!useLLM.checked) {
-                return restaurants;
-            }
             
             // Store original order to maintain info
             restaurants.forEach((r, index) => {
@@ -1721,14 +1722,37 @@
                 };
                 restaurant.totalScore = score;
                 
-                // Generate insight based on score breakdown
-                restaurant.llmInsights = generateScoreInsights(restaurant, cuisineKeyword);
-                
                 return restaurant;
             });
             
             // Sort by total score, highest first
             rankedRestaurants.sort((a, b) => b.totalScore - a.totalScore);
+            
+            // Generate insights using OpenAI for each restaurant
+            // Process in batches to avoid overwhelming the API
+            const batchSize = 5; // Process 5 restaurants at a time
+            const batches = Math.ceil(rankedRestaurants.length / batchSize);
+            
+            setLoadingText("Generating AI insights...");
+            
+            for (let i = 0; i < batches; i++) {
+                const start = i * batchSize;
+                const end = Math.min(start + batchSize, rankedRestaurants.length);
+                const batch = rankedRestaurants.slice(start, end);
+                
+                // Update loading message to show progress
+                setLoadingText(`Generating AI insights... (${Math.min(end, rankedRestaurants.length)}/${rankedRestaurants.length})`);
+                
+                // Process each restaurant in the batch concurrently
+                await Promise.all(batch.map(async (restaurant) => {
+                    try {
+                        restaurant.llmInsights = await generateOpenAIInsights(restaurant, cuisineKeyword);
+                    } catch (error) {
+                        console.error("Error generating insights for restaurant:", restaurant.name, error);
+                        restaurant.llmInsights = generateScoreInsights(restaurant, cuisineKeyword);
+                    }
+                }));
+            }
             
             // Hide any error that might have shown earlier
             hideError();
@@ -1792,15 +1816,130 @@
             
             if (selectedPoints.length === 1) {
                 return [capitalizeFirstLetter(selectedPoints[0]) + "."];
-            } else if (selectedPoints.length === 2) {
-                return [capitalizeFirstLetter(selectedPoints[0]) + " and " + selectedPoints[1] + "."];
             } else {
-                // For 3 points, use commas and "and"
-                return [capitalizeFirstLetter(selectedPoints[0]) + ", " + selectedPoints[1] + ", and " + selectedPoints[2] + "."];
+                return [capitalizeFirstLetter(selectedPoints.join(" and ")) + "."];
             }
         }
 
-        // Helper function to capitalize first letter
+        // Using OpenAI to generate restaurant insights
+        async function generateOpenAIInsights(restaurant, cuisineKeyword) {
+            try {
+                const apiKey = "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";
+                
+                // Prepare the restaurant data to send to OpenAI
+                const restaurantData = {
+                    name: restaurant.name,
+                    cuisine: cuisineKeyword || restaurant.cuisine,
+                    rating: restaurant.ratingValue,
+                    reviewCount: restaurant.user_ratings_total,
+                    priceLevel: restaurant.priceLevel,
+                    reviews: restaurant.reviews?.slice(0, 3).map(r => r.text).filter(Boolean) || []
+                };
+                
+                // Construct a prompt for OpenAI
+                const prompt = `You are a helpful Singaporean food blogger who loves recommending local food places. Keep it under 35 words and make it personable.
+
+Restaurant information:
+Name: ${restaurantData.name}
+Cuisine: ${restaurantData.cuisine}
+Rating: ${restaurantData.rating} stars (from ${restaurantData.reviewCount} reviews)
+Price Level: ${getPriceLevelText(restaurantData.priceLevel)}
+
+${restaurantData.reviews.length > 0 ? 'Sample reviews:\n' + restaurantData.reviews.map(r => `- "${r}"`).join('\n') : 'No reviews available.'}
+
+Your recommendation should sound like a real Singaporean friend giving authentic advice about why this place worth visiting.`;
+
+                const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: "gpt-3.5-turbo",
+                        messages: [
+                            {
+                                role: "system",
+                                content: "You are a Singaporean food enthusiast. Be authentic in how Singaporeans actually talk about food."
+                            },
+                            {
+                                role: "user",
+                                content: prompt
+                            }
+                        ],
+                        max_tokens: 100
+                    })
+                });
+                
+                if (!response.ok) {
+                    console.error("OpenAI API Error:", await response.text());
+                    // Fallback to static insights if API call fails
+                    return generateScoreInsights(restaurant, cuisineKeyword);
+                }
+                
+                const data = await response.json();
+                const aiInsight = data.choices[0].message.content.trim();
+                console.log("OpenAI insight:", aiInsight);
+                
+                // Remove any quotes that OpenAI might have added
+                const formattedInsight = aiInsight.replace(/^["'](.*)["']$/, '$1');
+                
+                // Track the API usage
+                incrementAPIUsageCounter();
+                
+                return [formattedInsight];
+            } catch (error) {
+                console.error("Error generating OpenAI insights:", error);
+                // Fallback to static insights if any error occurs
+                return generateScoreInsights(restaurant, cuisineKeyword);
+            }
+        }
+        
+        // Helper function to get price level text
+        function getPriceLevelText(priceLevel) {
+            switch(priceLevel) {
+                case 1: return "Inexpensive";
+                case 2: return "Moderate";
+                case 3: return "Expensive";
+                case 4: return "Very Expensive";
+                default: return "Unknown";
+            }
+        }
+        
+        // Track API usage
+        function incrementAPIUsageCounter() {
+            try {
+                const today = new Date().toISOString().split('T')[0]; // Get date in YYYY-MM-DD format
+                
+                // Get existing data from localStorage
+                const usageData = JSON.parse(localStorage.getItem('openaiApiUsage')) || {};
+                
+                // Increment today's count
+                usageData[today] = (usageData[today] || 0) + 1;
+                
+                // Save back to localStorage
+                localStorage.setItem('openaiApiUsage', JSON.stringify(usageData));
+                
+                console.log(`API call recorded for ${today}. Total calls today: ${usageData[today]}`);
+                
+                // Update the display
+                updateAPIUsageDisplay();
+            } catch (error) {
+                console.error("Error tracking API usage:", error);
+            }
+        }
+        
+        // Function to get API usage statistics
+        function getAPIUsageStats() {
+            try {
+                const usageData = JSON.parse(localStorage.getItem('openaiApiUsage')) || {};
+                return usageData;
+            } catch (error) {
+                console.error("Error getting API usage stats:", error);
+                return {};
+            }
+        }
+
         function capitalizeFirstLetter(string) {
             return string.charAt(0).toUpperCase() + string.slice(1);
         }
@@ -2103,7 +2242,8 @@
                     // Update the title to "Local AI thinks..."
                     const insightsTitle = document.createElement('div');
                     insightsTitle.className = 'llm-insights-title';
-                    insightsTitle.innerHTML = 'Local AI thinks...';
+                    insightsTitle.innerHTML = 'Your Singaporean Friend Says:';
+                    
                     insightsContainer.appendChild(insightsTitle);
                     
                     // Show the insights as a paragraph instead of bullet points
@@ -2389,7 +2529,8 @@
                 
                 // Update the text to include "Local AI thinks"
                 const insightText = document.createElement('p');
-                insightText.innerHTML = `Local AI thinks: ${r.llmInsights[0]}`;
+                insightText.innerHTML = `Your Singaporean Friend Says: ${r.llmInsights[0]}`;
+                insightText.className = 'llm-insight-paragraph';
                 insightsElement.appendChild(insightText);
                 
                 // Remove multiple insight badges - we now only have one insight
@@ -2898,6 +3039,9 @@
                 // Normal startup sequence: Just show the search view
                 showView(views.search);
             }
+
+            // Initialize the API usage display
+            updateAPIUsageDisplay();
         });
 
         function showPreviousPhoto() {
@@ -2948,6 +3092,34 @@
                 swipeUI.image.src = r.photoUrls[r.currentPhotoIndex];
             }
             updatePhotoIndicators(r);
+        }
+
+        function updateAPIUsageDisplay() {
+            const usageData = getAPIUsageStats();
+            const usageDisplay = document.getElementById('api-usage-display');
+            
+            if (!usageDisplay) return;
+            
+            if (Object.keys(usageData).length === 0) {
+                usageDisplay.textContent = "No API calls yet";
+                return;
+            }
+            
+            // Sort dates from most recent to oldest
+            const sortedDates = Object.keys(usageData).sort().reverse();
+            
+            // Get last 7 days of data
+            const recentDates = sortedDates.slice(0, 7);
+            
+            // Format for display
+            const formattedUsage = recentDates.map(date => {
+                const count = usageData[date];
+                // Format date as "MMM DD" (e.g., "Jan 15")
+                const formattedDate = new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                return `${formattedDate}: ${count}`;
+            }).join(' | ');
+            
+            usageDisplay.textContent = formattedUsage;
         }
     </script>
 
