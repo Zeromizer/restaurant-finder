@@ -1245,43 +1245,31 @@
                 priceLevel: priceLevel || ''
             });
             
-            // Check cache first
-            const cachedResults = window.placesCache?.getCachedNearbySearch(cacheKey);
-            if (cachedResults) {
-                console.log("Using cached nearby search results");
-                if (cachedResults.length > 0) {
-                    // Ensure the cached results have the necessary structure for further processing
-                    const operational = cachedResults.filter(p => p.business_status === 'OPERATIONAL').slice(0, 30);
-                    if (operational.length === 0) {
-                        showError(`No operational food establishments found.`);
-                        showView(views.search);
-                        return;
+            // First check server cache (preferred)
+            getServerCachedNearbySearch(cacheKey)
+                .then(serverCachedResults => {
+                    if (serverCachedResults) {
+                        console.log("Using server-cached nearby search results");
+                        processCachedResults(serverCachedResults, keyword);
+                        return true; // Indicate we used server cache
                     }
-                    console.log("Found", operational.length, "cached operational food establishments.");
                     
-                    // Fix for geometry.location to ensure it has lat() and lng() methods
-                    // if they were stored as plain properties
-                    operational.forEach(place => {
-                        if (place.geometry && place.geometry.location) {
-                            // Create proper lat and lng methods if they don't exist
-                            if (typeof place.geometry.location.lat !== 'function') {
-                                const originalLat = place.geometry.location.lat;
-                                place.geometry.location.lat = function() { return originalLat; };
-                            }
-                            if (typeof place.geometry.location.lng !== 'function') {
-                                const originalLng = place.geometry.location.lng;
-                                place.geometry.location.lng = function() { return originalLng; };
-                            }
-                        }
-                    });
+                    // Then check local cache
+                    const localCachedResults = window.placesCache?.getCachedNearbySearch(cacheKey);
+                    if (localCachedResults) {
+                        console.log("Using locally cached nearby search results");
+                        
+                        // Also save to server cache for future use
+                        saveServerNearbySearch(cacheKey, localCachedResults).catch(console.error);
+                        
+                        processCachedResults(localCachedResults, keyword);
+                        return true; // Indicate we used local cache
+                    }
                     
-                    processRestaurantResults(operational, keyword);
-                } else {
-                    showError(`No food establishments found${keyword ? ` for "${keyword}"` : ''}.`);
-                    showView(views.search);
-                }
-                return;
-            }
+                    return false; // Indicate we need to do an API search
+                })
+                .then(cacheHit => {
+                    if (cacheHit) return; // Skip API search if we got results from cache
             
             // If not in cache, proceed with API call
             const placesService = new google.maps.places.PlacesService(document.createElement('div'));
@@ -1317,8 +1305,6 @@
                 });
             });
             
-            // Remove the additional keyword search for hawker centers to further reduce API calls
-            
             // Wait for all searches to complete, then combine and deduplicate results
             Promise.all(searchPromises).then(resultsArrays => {
                 // Flatten array of arrays and remove duplicates based on place_id
@@ -1334,9 +1320,10 @@
                 
                 console.log("Total unique places found:", allPlaces.length);
                 
-                // Cache the results
+                        // Cache the results in both local and server cache
                 if (allPlaces.length > 0) {
                     window.placesCache?.cacheNearbySearch(cacheKey, allPlaces);
+                            saveServerNearbySearch(cacheKey, allPlaces).catch(console.error);
                 }
                 
                 if (allPlaces.length > 0) {
@@ -1354,35 +1341,88 @@
                 }
             }).catch(error => {
                 console.error("Error in searches:", error);
+                        showError("Error searching for food establishments.");
+                        showView(views.search);
+                    });
+                })
+                .catch(error => {
+                    console.error("Error checking caches:", error);
                 showError("Error searching for food establishments.");
                 showView(views.search);
             });
         }
+        
+        // Helper function to process cached results
+        function processCachedResults(cachedResults, keyword) {
+            if (cachedResults.length > 0) {
+                // Ensure the cached results have the necessary structure for further processing
+                const operational = cachedResults.filter(p => p.business_status === 'OPERATIONAL').slice(0, 30);
+                if (operational.length === 0) {
+                    showError(`No operational food establishments found.`);
+                    showView(views.search);
+                    return;
+                }
+                console.log("Found", operational.length, "cached operational food establishments.");
+                
+                // Fix for geometry.location to ensure it has lat() and lng() methods
+                // if they were stored as plain properties
+                operational.forEach(place => {
+                    if (place.geometry && place.geometry.location) {
+                        // Create proper lat and lng methods if they don't exist
+                        if (typeof place.geometry.location.lat !== 'function') {
+                            const originalLat = place.geometry.location.lat;
+                            place.geometry.location.lat = function() { return originalLat; };
+                        }
+                        if (typeof place.geometry.location.lng !== 'function') {
+                            const originalLng = place.geometry.location.lng;
+                            place.geometry.location.lng = function() { return originalLng; };
+                        }
+                    }
+                });
+                
+                processRestaurantResults(operational, keyword);
+            } else {
+                showError(`No food establishments found${keyword ? ` for "${keyword}"` : ''}.`);
+                showView(views.search);
+            }
+        }
         function getPlaceDetails(placeIds) {
             const placesService = new google.maps.places.PlacesService(document.createElement('div'));
             
-            // Check which place IDs are already in the cache
-            const cachedDetails = {};
-            const uncachedPlaceIds = [];
-            
-            placeIds.forEach(id => {
-                const cachedDetail = window.placesCache?.getCachedPlaceDetails(id);
-                if (cachedDetail) {
-                    cachedDetails[id] = cachedDetail;
+            // First check server cache for all IDs
+            return Promise.all(placeIds.map(id => getServerCachedPlaceDetails(id)))
+                .then(serverCachedDetails => {
+                    const cachedDetails = {};  // Will hold all cached details from either source
+                    const uncachedPlaceIds = []; // Will hold IDs we need to fetch
+                    
+                    // Process server-cached results first
+                    serverCachedDetails.forEach((detail, index) => {
+                        const id = placeIds[index];
+                        if (detail) {
+                            cachedDetails[id] = detail;
+                        } else {
+                            // If not in server cache, check local cache
+                            const localCachedDetail = window.placesCache?.getCachedPlaceDetails(id);
+                            if (localCachedDetail) {
+                                cachedDetails[id] = localCachedDetail;
+                                // Save to server cache for future use
+                                saveServerPlaceDetails(id, localCachedDetail).catch(console.error);
                 } else {
                     uncachedPlaceIds.push(id);
+                            }
                 }
             });
             
-            console.log(`Using ${Object.keys(cachedDetails).length} cached place details and fetching ${uncachedPlaceIds.length} new ones`);
+                    console.log(`Using ${Object.keys(cachedDetails).length} cached place details (${serverCachedDetails.filter(Boolean).length} from server) and fetching ${uncachedPlaceIds.length} new ones`);
             
             // If all details are in cache, return immediately
             if (uncachedPlaceIds.length === 0) {
-                // We need to convert cached photo objects to the format expected by the rest of the code
-                return Promise.resolve(placeIds.map(id => {
+                        // Convert cached details to the expected format
+                        return placeIds.map(id => {
                     const cachedDetail = cachedDetails[id];
+                            
                     // Process cached photos to ensure compatibility
-                    if (cachedDetail && cachedDetail.photos) {
+                            if (cachedDetail && cachedDetail.photos && Array.isArray(cachedDetail.photos)) {
                         // Convert the serialized photo objects to match the structure
                         // expected by the rest of the application
                         cachedDetail.photos = cachedDetail.photos.map(photo => {
@@ -1402,11 +1442,12 @@
                         cachedDetail.photos = [];
                     }
                     return cachedDetail;
-                }));
+                        });
             }
             
             // Otherwise fetch only the uncached place details
-            const promises = uncachedPlaceIds.map(id => new Promise(res => placesService.getDetails({ 
+                    const promises = uncachedPlaceIds.map(id => new Promise(res => {
+                        placesService.getDetails({ 
                 placeId: id, 
                 fields: [
                     'photos', 'name', 'reviews', 'opening_hours', 
@@ -1417,99 +1458,59 @@
             }, (d, s) => {
                 // Process reviews if available
                 let reviews = [];
-                if (s === google.maps.places.PlacesServiceStatus.OK && d?.reviews && d.reviews.length > 0) {
-                    // First review is already most relevant (by Google's ranking)
-                    const mostRelevant = d.reviews[0];
-                    
-                    // Sort the rest by date (most recent first)
-                    const otherReviews = d.reviews.slice(1).sort((a, b) => 
-                        new Date(b.time * 1000) - new Date(a.time * 1000)
-                    );
-                    
-                    // Combine: most relevant first, then two most recent
-                    reviews = [mostRelevant, ...otherReviews.slice(0, 2)];
-                }
-                
-                // Check if the place is new (3 months or less)
-                // We need to analyze all reviews and additional signals to determine if the place is truly new
                 let isNew = false;
                 
-                if (s === google.maps.places.PlacesServiceStatus.OK) {
-                    // Multiple signals to check if a restaurant is new
-                    
-                    // 1. Review count - new places typically have few reviews
-                    const fewReviews = d.user_ratings_total && d.user_ratings_total < 15;
-                    
-                    // 2. Review dates - check if all reviews are recent
-                    let allReviewsRecent = false;
-                    let hasReviews = false;
-                    
-                    if (d.reviews && d.reviews.length > 0) {
-                        hasReviews = true;
-                        // Sort all reviews by date (oldest first)
-                        const sortedReviews = [...d.reviews].sort((a, b) => 
-                            new Date(a.time * 1000) - new Date(b.time * 1000)
-                        );
-                        
-                        // Get the oldest review date
-                        const oldestReviewDate = new Date(sortedReviews[0].time * 1000);
-                        const threeMonthsAgo = new Date();
-                        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-                        
-                        // Check if oldest review is less than 3 months old
-                        allReviewsRecent = oldestReviewDate > threeMonthsAgo;
-                        
-                        // 3. Review text analysis - look for clues
-                        const reviewText = d.reviews.map(r => r.text || '').join(' ').toLowerCase();
-                        
-                        // Phrases that suggest the place is NOT new
-                        const notNewPhrases = [
-                            'been here for years', 'been open for years', 'old favorite', 
-                            'long time', 'year ago', 'years ago', 'was here last year', 
-                            'returned after', 'used to be', 'always been', 'regular',
-                            'again', 'back to', 'still good', 'still great', 'still the best',
-                            'as usual', 'as always', 'reopened', 're-opened'
-                        ];
-                        
-                        // Phrases that suggest the place IS new
-                        const newPhrases = [
-                            'just opened', 'newly opened', 'new place', 'new restaurant', 
-                            'new opening', 'recent opening', 'grand opening', 'soft opening',
-                            'opening week', 'first week', 'first day', 'first customers',
-                            'recent addition', 'recently opened', 'brand new', 'newly established',
-                            'only been open', 'month since opening', 'weeks since opening'
-                        ];
-                        
-                        const hasNotNewPhrase = notNewPhrases.some(phrase => reviewText.includes(phrase));
-                        const hasNewPhrase = newPhrases.some(phrase => reviewText.includes(phrase));
-                        
-                        // If we have strong signals in the review text, override other factors
+                            if (s === google.maps.places.PlacesServiceStatus.OK && d?.reviews) {
+                                reviews = d.reviews.map(review => ({
+                                    author_name: review.author_name || 'Anonymous',
+                                    profile_photo_url: review.profile_photo_url || '',
+                                    rating: review.rating || 0,
+                                    relative_time_description: review.relative_time_description || '',
+                                    text: review.text || '',
+                                    time: review.time || 0
+                                }));
+                                
+                                // Determine if place is new based on reviews
+                                if (reviews.length) {
+                                    // Logic for determining if a place is new based on reviews
+                                    const now = Date.now() / 1000;
+                                    const reviewTimes = reviews.map(r => r.time).filter(Boolean);
+                                    const fewReviews = reviewTimes.length <= 3;
+                                    const avgReviewTime = reviewTimes.reduce((a, b) => a + b, 0) / reviewTimes.length;
+                                    const avgReviewAgeInDays = (now - avgReviewTime) / (24 * 60 * 60);
+                                    const allReviewsRecent = avgReviewAgeInDays < 90;
+                                    
+                                    // Phrases that might indicate newness in review text
+                                    const allReviewText = reviews.map(r => r.text || '').join(' ').toLowerCase();
+                                    const newPhrases = ['just opened', 'newly opened', 'new restaurant', 'new place', 'grand opening', 'soft opening', 'recently opened'];
+                                    const notNewPhrases = ['been coming here for years', 'old favorite', 'always come here', 'many years', 'come back', 'came back', 'regular'];
+                                    
+                                    // Check for these phrases
+                                    const hasNewPhrase = newPhrases.some(phrase => allReviewText.includes(phrase));
+                                    const hasNotNewPhrase = notNewPhrases.some(phrase => allReviewText.includes(phrase));
+                                    
                         if (hasNotNewPhrase) {
                             isNew = false;
                         } else if (hasNewPhrase) {
                             isNew = true;
                         } else {
-                            // 4. Combine signals - only mark as new if both conditions are met
                             isNew = fewReviews && allReviewsRecent;
                         }
                     } else {
-                        // No reviews might mean it's very new, but allow other signals to override
-                        isNew = true;
-                    }
-                    
-                    // Additional signal: Very low review count is a strong indicator of newness
-                    // Override previous determination if review count is extremely low (3 or fewer)
-                    if (d.user_ratings_total !== undefined && d.user_ratings_total <= 3) {
+                                    isNew = true; // No reviews might indicate it's new
+                                }
+                                
+                                // Additional review count check
+                                if (d.user_ratings_total !== undefined) {
+                                    if (d.user_ratings_total <= 3) {
                         isNew = true;
                     } else if (d.user_ratings_total > 30) {
-                        // Many reviews usually means established business
                         isNew = false;
                     }
-                    
-                    // Business status check - OPERATIONAL doesn't tell us much about age
-                    // Most places don't have their opening date in the API
+                                }
                 }
                 
+                            // Create the detail result
                 const detailResult = { 
                     placeId: id, 
                     photos: (s === google.maps.places.PlacesServiceStatus.OK && d?.photos) ? d.photos : [],
@@ -1517,24 +1518,60 @@
                     isNew: isNew
                 };
                 
-                // Cache the place details
+                            // Cache the result in both local and server caches
                 window.placesCache?.cachePlaceDetails(id, detailResult);
+                            saveServerPlaceDetails(id, detailResult).catch(console.error);
                 
                 res(detailResult);
-            })));
+                        });
+                    }));
             
             // Combine cached and newly fetched details
             return Promise.all(promises).then(newDetails => {
-                const allDetails = [...newDetails];
-                
-                // Add cached details to the result
-                placeIds.forEach(id => {
-                    if (cachedDetails[id] && !allDetails.some(d => d.placeId === id)) {
-                        allDetails.push(cachedDetails[id]);
-                    }
-                });
-                
-                return allDetails;
+                        // Create a result array with details in the same order as placeIds
+                        return placeIds.map(id => {
+                            // First check if we have this ID in our newly fetched details
+                            const newDetail = newDetails.find(d => d.placeId === id);
+                            if (newDetail) return newDetail;
+                            
+                            // Otherwise use cached detail
+                            const cachedDetail = cachedDetails[id];
+                            
+                            // Process cached photos as before
+                            if (cachedDetail && cachedDetail.photos && Array.isArray(cachedDetail.photos)) {
+                                cachedDetail.photos = cachedDetail.photos.map(photo => {
+                                    if (photo.url) {
+                                        return {
+                                            getUrl: (options) => photo.url,
+                                            width: photo.width || 1000,
+                                            height: photo.height || 800,
+                                            html_attributions: photo.html_attributions || []
+                                        };
+                                    }
+                                    return photo;
+                                });
+                            } else if (cachedDetail) {
+                                cachedDetail.photos = [];
+                            }
+                            
+                            return cachedDetail || {
+                                placeId: id,
+                                photos: [],
+                                reviews: [],
+                                isNew: false
+                            };
+                        });
+                    });
+                })
+                .catch(error => {
+                    console.error("Error fetching place details:", error);
+                    // Fallback to a basic implementation if there's an error
+                    return placeIds.map(id => ({
+                        placeId: id,
+                        photos: [],
+                        reviews: [],
+                        isNew: false
+                    }));
             });
         }
         async function processRestaurantResults(results, searchKeyword) {
@@ -1614,13 +1651,13 @@
                  if (restaurants.length === 0) { showError('No food places found matching your criteria.'); showView(views.search); return; }
                  
                  // Always apply custom scoring and ranking
-                 setLoadingText("Ranking and analyzing restaurants...");
-                 try {
-                     restaurants = await enhanceResultsWithLLM(restaurants, searchKeyword);
-                     console.log("Restaurants ranked with custom scoring system");
-                 } catch (error) {
-                     console.error("Ranking failed:", error);
-                     // Continue with normal results if ranking fails
+                     setLoadingText("Ranking and analyzing restaurants...");
+                     try {
+                         restaurants = await enhanceResultsWithLLM(restaurants, searchKeyword);
+                         console.log("Restaurants ranked with custom scoring system");
+                     } catch (error) {
+                         console.error("Ranking failed:", error);
+                         // Continue with normal results if ranking fails
                  }
                  
                  sessionId = generateSessionId(); saveSessionToFirebase();
@@ -1824,7 +1861,12 @@
         // Using OpenAI to generate restaurant insights
         async function generateOpenAIInsights(restaurant, cuisineKeyword) {
             try {
-                const apiKey = "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";
+                // Get API key from Firebase instead of hardcoding it
+                const apiKey = await getOpenAIKeyFromFirebase();
+                if (!apiKey) {
+                    console.error("Could not retrieve OpenAI API key from Firebase");
+                    return generateScoreInsights(restaurant, cuisineKeyword);
+                }
                 
                 // Prepare the restaurant data to send to OpenAI
                 const restaurantData = {
@@ -1837,7 +1879,7 @@
                 };
                 
                 // Construct a prompt for OpenAI
-                const prompt = `You are a helpful Singaporean food blogger who loves recommending local food places. Keep it under 35 words and make it personable.
+                const prompt = `You are a helpful Singaporean food blogger who loves recommending local food places. Write a short, enthusiastic recommendation for this restaurant using Singlish expressions and local Singapore phrases. Make it sound authentic like a local speaking, with phrases like "shiok", "can make it", "not bad lah", "die die must try", "wah so good", etc. Keep it under 35 words and make it personable.
 
 Restaurant information:
 Name: ${restaurantData.name}
@@ -1847,7 +1889,7 @@ Price Level: ${getPriceLevelText(restaurantData.priceLevel)}
 
 ${restaurantData.reviews.length > 0 ? 'Sample reviews:\n' + restaurantData.reviews.map(r => `- "${r}"`).join('\n') : 'No reviews available.'}
 
-Your recommendation should sound like a real Singaporean friend giving authentic advice about why this place worth visiting.`;
+Your recommendation should sound like a real Singaporean friend giving authentic advice about why this place worth visiting. Use casual Singlish tone with local expressions.`;
 
                 const response = await fetch('https://api.openai.com/v1/chat/completions', {
                     method: 'POST',
@@ -1860,7 +1902,7 @@ Your recommendation should sound like a real Singaporean friend giving authentic
                         messages: [
                             {
                                 role: "system",
-                                content: "You are a Singaporean food enthusiast. Be authentic in how Singaporeans actually talk about food."
+                                content: "You are a Singaporean food enthusiast who speaks in Singlish. Use local Singapore expressions and casual speaking style. Be authentic in how Singaporeans actually talk about food."
                             },
                             {
                                 role: "user",
@@ -1892,6 +1934,32 @@ Your recommendation should sound like a real Singaporean friend giving authentic
                 console.error("Error generating OpenAI insights:", error);
                 // Fallback to static insights if any error occurs
                 return generateScoreInsights(restaurant, cuisineKeyword);
+            }
+        }
+
+        // Retrieve OpenAI API key from Firebase
+        async function getOpenAIKeyFromFirebase() {
+            if (typeof firebase === 'undefined' || !firebase.apps.length) {
+                console.error("Firebase not initialized for API key retrieval");
+                return null;
+            }
+            
+            try {
+                // Path to the stored API key in Firebase
+                const apiKeyRef = firebase.database().ref('apiKeys/openai');
+                const snapshot = await apiKeyRef.once('value');
+                
+                if (snapshot.exists()) {
+                    const apiKeyData = snapshot.val();
+                    // Access the 'key' property of the stored object
+                    return apiKeyData.key;
+                } else {
+                    console.error("OpenAI API key not found in Firebase");
+                    return null;
+                }
+            } catch (error) {
+                console.error("Error retrieving OpenAI API key from Firebase:", error);
+                return null;
             }
         }
         
@@ -1998,10 +2066,19 @@ Your recommendation should sound like a real Singaporean friend giving authentic
             const destStr = `${destination.lat().toFixed(6)},${destination.lng().toFixed(6)}`;
             const cacheKey = `${originStr}|${destStr}`;
             
-            // Check if we have cached travel times
+            // Check if we have server-cached travel times (preferred)
+            const serverCachedTimes = await getServerCachedTravelTimes(cacheKey).catch(() => null);
+            if (serverCachedTimes) {
+                console.log('Using server-cached travel times');
+                return serverCachedTimes;
+            }
+            
+            // Check if we have cached travel times in local storage
             const cachedTimes = window.placesCache?.getCachedTravelTimes(cacheKey);
             if (cachedTimes) {
-                console.log('Using cached travel times');
+                console.log('Using locally cached travel times');
+                // Also save to server cache for future use
+                saveServerTravelTimes(cacheKey, cachedTimes).catch(console.error);
                 return cachedTimes;
             }
             
@@ -2054,8 +2131,9 @@ Your recommendation should sound like a real Singaporean friend giving authentic
                 
                 const travelTimes = { driving: drivingTime, transit: transitTime };
                 
-                // Cache the travel times
+                // Cache results in both local storage and server
                 window.placesCache?.cacheTravelTimes(cacheKey, travelTimes);
+                saveServerTravelTimes(cacheKey, travelTimes).catch(console.error);
                 
                 return travelTimes;
             } catch (error) {
@@ -2769,16 +2847,23 @@ Your recommendation should sound like a real Singaporean friend giving authentic
                     firebase.initializeApp(cfg);
                     console.log("Firebase successfully initialized");
                     
+                    // Set up security for API keys access if we're on the admin page
+                    setupAPIKeySecurity();
+                    
                     // Test the connection
                     firebase.database().ref('.info/connected').on('value', (snap) => {
                         if (snap.val() === true) {
                             console.log("Connected to Firebase");
+                            // Initialize server cache cleanup
+                            checkAndCleanServerCache();
                         } else {
                             console.log("Not connected to Firebase");
                         }
                     });
                 } else {
                     console.log("Firebase was already initialized");
+                    // Initialize server cache cleanup
+                    checkAndCleanServerCache();
                 }
             } catch (e) {
                 console.error("Firebase initialization error:", e);
@@ -2786,6 +2871,346 @@ Your recommendation should sound like a real Singaporean friend giving authentic
                 resultsUI.findMatchesButton.disabled = true;
                 resultsUI.copyCodeButton.disabled = true;
                 resultsUI.copyLinkButton.disabled = true;
+            }
+        }
+        
+        // Set up security for API keys access
+        function setupAPIKeySecurity() {
+            // Only call this if you're on an admin page or during development
+            // In production, you would set these rules via Firebase Console
+            
+            // This function is just to document what security rules should be
+            // implemented in your Firebase Realtime Database Rules:
+            
+            /*
+            {
+              "rules": {
+                "apiKeys": {
+                  // Only authenticated users with admin role can write
+                  ".write": "auth != null && auth.token.admin === true",
+                  
+                  // Only the app's domain can read the keys
+                  ".read": "auth != null || 
+                            (request.auth == null && 
+                             (request.origin == 'https://yourdomain.com' || 
+                              request.origin == null))"
+                },
+                // Other rules for your database...
+              }
+            }
+            */
+        }
+        
+        // Check if the OpenAI API key is available and valid
+        async function checkOpenAIAPIKey() {
+            try {
+                const apiKey = await getOpenAIKeyFromFirebase();
+                if (!apiKey) {
+                    console.warn("OpenAI API key not found in Firebase");
+                    return false;
+                }
+                
+                // Optional: Make a minimal API call to verify the key works
+                const response = await fetch('https://api.openai.com/v1/models', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`
+                    }
+                });
+                
+                if (response.ok) {
+                    console.log("OpenAI API key validated successfully");
+                    return true;
+                } else {
+                    console.error("OpenAI API key validation failed:", await response.text());
+                    return false;
+                }
+            } catch (error) {
+                console.error("Error validating OpenAI API key:", error);
+                return false;
+            }
+        }
+
+        // --- Server-Side Cache Implementation ---
+        
+        // Firebase cache paths
+        const CACHE_PATHS = {
+            NEARBY_SEARCH: 'googleApiCache/nearbySearch',
+            PLACE_DETAILS: 'googleApiCache/placeDetails',
+            TRAVEL_TIMES: 'googleApiCache/travelTimes',
+            METADATA: 'googleApiCache/metadata'
+        };
+        
+        // One month in milliseconds (30 days)
+        const ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+        
+        // Create a hash for cache keys to avoid invalid Firebase path characters
+        function createCacheHash(str) {
+            // Simple hash function that works for our purpose
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash; // Convert to 32bit integer
+            }
+            // Make positive and convert to base 36 (alphanumeric) with a prefix
+            return 'h' + Math.abs(hash).toString(36);
+        }
+        
+        // Check server cache and clean expired entries
+        function checkAndCleanServerCache() {
+            if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+            
+            // Get the current timestamp
+            const now = Date.now();
+            
+            // First check when the last cleanup occurred
+            firebase.database().ref(CACHE_PATHS.METADATA + '/lastCleanup').once('value')
+                .then(snapshot => {
+                    const lastCleanup = snapshot.val() || 0;
+                    
+                    // Only clean once a day (24 hours)
+                    if (now - lastCleanup < 24 * 60 * 60 * 1000) {
+                        console.log('Server cache was cleaned within the last 24 hours, skipping cleanup');
+                        return;
+                    }
+                    
+                    console.log('Checking server cache for expired entries...');
+                    
+                    // Update last cleanup time immediately to prevent concurrent cleanups
+                    firebase.database().ref(CACHE_PATHS.METADATA + '/lastCleanup').set(now);
+                    
+                    // Clean each cache type
+                    cleanCacheEntries(CACHE_PATHS.NEARBY_SEARCH);
+                    cleanCacheEntries(CACHE_PATHS.PLACE_DETAILS);
+                    cleanCacheEntries(CACHE_PATHS.TRAVEL_TIMES);
+                })
+                .catch(error => {
+                    console.error('Error checking server cache metadata:', error);
+                });
+        }
+        
+        // Clean expired entries from a specific cache path
+        function cleanCacheEntries(cachePath) {
+            if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+            
+            const now = Date.now();
+            const expireTime = now - ONE_MONTH_MS;
+            
+            // Query for expired entries
+            firebase.database().ref(cachePath).once('value')
+                .then(snapshot => {
+                    if (!snapshot.exists()) return;
+                    
+                    const updates = {};
+                    let expiredCount = 0;
+                    
+                    snapshot.forEach(child => {
+                        const entry = child.val();
+                        if (entry && entry.timestamp && entry.timestamp < expireTime) {
+                            // Mark this entry for deletion
+                            updates[child.key] = null;
+                            expiredCount++;
+                        }
+                    });
+                    
+                    // If we have entries to delete, do it in one batch operation
+                    if (expiredCount > 0) {
+                        console.log(`Removing ${expiredCount} expired entries from ${cachePath}`);
+                        return firebase.database().ref(cachePath).update(updates);
+                    }
+                })
+                .then(() => {
+                    console.log(`Finished cleaning ${cachePath}`);
+                })
+                .catch(error => {
+                    console.error(`Error cleaning expired entries from ${cachePath}:`, error);
+                });
+        }
+        
+        // Check server cache for near search results
+        async function getServerCachedNearbySearch(searchKey) {
+            if (typeof firebase === 'undefined' || !firebase.apps.length) return null;
+            
+            try {
+                const hashKey = createCacheHash(searchKey);
+                const snapshot = await firebase.database().ref(`${CACHE_PATHS.NEARBY_SEARCH}/${hashKey}`).once('value');
+                
+                if (snapshot.exists()) {
+                    const cachedData = snapshot.val();
+                    const now = Date.now();
+                    
+                    // Check if cache is still valid (not expired)
+                    if (cachedData.timestamp && now - cachedData.timestamp < ONE_MONTH_MS) {
+                        console.log('Using server-cached nearby search results for:', searchKey);
+                        return cachedData.data;
+                    }
+                }
+                return null;
+            } catch (error) {
+                console.error('Error getting server-cached nearby search:', error);
+                return null;
+            }
+        }
+        
+        // Save nearby search results to server cache
+        async function saveServerNearbySearch(searchKey, results) {
+            if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+            
+            try {
+                // Ensure the results are serializable
+                const serializableResults = results.map(place => {
+                    return {
+                        place_id: place.place_id,
+                        name: place.name,
+                        vicinity: place.vicinity,
+                        rating: place.rating,
+                        user_ratings_total: place.user_ratings_total,
+                        price_level: place.price_level,
+                        types: place.types ? [...place.types] : [],
+                        business_status: place.business_status,
+                        // Include a basic photo reference if available
+                        photos: place.photos && place.photos.length > 0 ? [{
+                            photo_reference: place.photos[0].photo_reference,
+                            // Store a direct URL if possible
+                            direct_url: typeof place.photos[0].getUrl === 'function' ? 
+                                place.photos[0].getUrl({ maxWidth: 800, maxHeight: 600 }) : null
+                        }] : null,
+                        // Handle geometry coordinates in a safe way
+                        geometry: place.geometry ? {
+                            location: {
+                                lat: typeof place.geometry.location.lat === 'function' ? 
+                                    place.geometry.location.lat() : place.geometry.location.lat,
+                                lng: typeof place.geometry.location.lng === 'function' ? 
+                                    place.geometry.location.lng() : place.geometry.location.lng
+                            }
+                        } : null
+                    };
+                });
+                
+                const hashKey = createCacheHash(searchKey);
+                const cacheEntry = {
+                    data: serializableResults,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                };
+                
+                await firebase.database().ref(`${CACHE_PATHS.NEARBY_SEARCH}/${hashKey}`).set(cacheEntry);
+                console.log('Saved nearby search to server cache for:', searchKey);
+            } catch (error) {
+                console.error('Error saving nearby search to server cache:', error);
+            }
+        }
+        
+        // Check server cache for place details
+        async function getServerCachedPlaceDetails(placeId) {
+            if (typeof firebase === 'undefined' || !firebase.apps.length) return null;
+            
+            try {
+                const snapshot = await firebase.database().ref(`${CACHE_PATHS.PLACE_DETAILS}/${placeId}`).once('value');
+                
+                if (snapshot.exists()) {
+                    const cachedData = snapshot.val();
+                    const now = Date.now();
+                    
+                    // Check if cache is still valid (not expired)
+                    if (cachedData.timestamp && now - cachedData.timestamp < ONE_MONTH_MS) {
+                        console.log('Using server-cached place details for:', placeId);
+                        return cachedData.data;
+                    }
+                }
+                return null;
+            } catch (error) {
+                console.error('Error getting server-cached place details:', error);
+                return null;
+            }
+        }
+        
+        // Save place details to server cache
+        async function saveServerPlaceDetails(placeId, details) {
+            if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+            
+            try {
+                // Create a serializable version of the photos array
+                let serializablePhotos = [];
+                if (details.photos && details.photos.length) {
+                    serializablePhotos = details.photos.map(photo => {
+                        // Store the direct URL at a reasonable size
+                        let directUrl = null;
+                        if (typeof photo.getUrl === 'function') {
+                            directUrl = photo.getUrl({ maxWidth: 1000, maxHeight: 1000 });
+                        } else if (photo.url) {
+                            directUrl = photo.url;
+                        }
+                        
+                        return { 
+                            url: directUrl,
+                            width: photo.width || 1000,
+                            height: photo.height || 800,
+                            html_attributions: photo.html_attributions || []
+                        };
+                    }).filter(p => p !== null && p.url);
+                }
+                
+                // Create a serializable copy of details
+                const serializableDetails = {
+                    placeId: details.placeId,
+                    isNew: details.isNew,
+                    reviews: details.reviews || [],
+                    photos: serializablePhotos
+                };
+                
+                const cacheEntry = {
+                    data: serializableDetails,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                };
+                
+                await firebase.database().ref(`${CACHE_PATHS.PLACE_DETAILS}/${placeId}`).set(cacheEntry);
+                console.log('Saved place details to server cache for:', placeId);
+            } catch (error) {
+                console.error('Error saving place details to server cache:', error);
+            }
+        }
+        
+        // Check server cache for travel times
+        async function getServerCachedTravelTimes(originDestKey) {
+            if (typeof firebase === 'undefined' || !firebase.apps.length) return null;
+            
+            try {
+                const hashKey = createCacheHash(originDestKey);
+                const snapshot = await firebase.database().ref(`${CACHE_PATHS.TRAVEL_TIMES}/${hashKey}`).once('value');
+                
+                if (snapshot.exists()) {
+                    const cachedData = snapshot.val();
+                    const now = Date.now();
+                    
+                    // Check if cache is still valid (not expired)
+                    if (cachedData.timestamp && now - cachedData.timestamp < ONE_MONTH_MS) {
+                        console.log('Using server-cached travel times for:', originDestKey);
+                        return cachedData.data;
+                    }
+                }
+                return null;
+            } catch (error) {
+                console.error('Error getting server-cached travel times:', error);
+                return null;
+            }
+        }
+        
+        // Save travel times to server cache
+        async function saveServerTravelTimes(originDestKey, times) {
+            if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+            
+            try {
+                const hashKey = createCacheHash(originDestKey);
+                const cacheEntry = {
+                    data: times,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                };
+                
+                await firebase.database().ref(`${CACHE_PATHS.TRAVEL_TIMES}/${hashKey}`).set(cacheEntry);
+                console.log('Saved travel times to server cache for:', originDestKey);
+            } catch (error) {
+                console.error('Error saving travel times to server cache:', error);
             }
         }
 
